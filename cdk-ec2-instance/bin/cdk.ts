@@ -18,6 +18,6 @@ new VoipGatewayEC2Stack(app, 'VoipGatewayEC2Stack', {
 
   /* For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html */
 
-  keyPairName: 'my-key-pair',
+  keyPairName: 'ec2-nova-s2s',
   // vpcId: 'vpc-########',
 });
