@@ -9,3 +9,4 @@ dependency-reduced-pom.xml
 cdk.context.json
 node_modules
 .env
+CLAUDE.md

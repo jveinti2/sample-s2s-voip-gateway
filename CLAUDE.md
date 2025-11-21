@@ -136,10 +136,149 @@ Configuration priority: If `SIP_SERVER` is set → use environment variables, ot
 
 **Nova Configuration**:
 - `NOVA_VOICE_ID` - Amazon Nova Sonic voice ID (default: en_us_matthew)
-- `NOVA_PROMPT` - System prompt for Nova Sonic (see NovaMediaConfig.java for default)
+- `NOVA_PROMPT` - System prompt for Nova Sonic (see System Prompt Configuration section below)
+- `NOVA_MAX_TOKENS` - Maximum tokens per response (default: 1024)
+- `NOVA_TOP_P` - Top-p sampling parameter (default: 0.9)
+- `NOVA_TEMPERATURE` - Temperature for response generation (default: 0.7)
 
 **Debug**:
 - `DEBUG_AUDIO_OUTPUT` - Log audio output details (true|false, default: false)
+
+## System Prompt Configuration
+
+### Overview
+
+The system prompt defines the behavior, personality, and conversational flow for Nova Sonic during VoIP calls. The gateway uses a structured prompt approach that guides the AI through different conversational states with clear transitions and instructions.
+
+### Default Prompt
+
+By default, the system loads a structured prompt from `src/main/resources/system-prompt.txt`. This prompt defines:
+
+- **Identity**: The AI's name (Laura), language (Spanish), and role (Virtual Receptionist)
+- **Global Rules**: Response timing, tone guidelines, presentation rules, confirmation patterns
+- **Conversational States**: A state machine with transitions for:
+  - Initial greeting and intent detection
+  - Appointment scheduling (with sub-states)
+  - Information queries
+  - Request/complaint registration
+  - Closing and farewell
+
+The default prompt is designed for a Spanish-speaking virtual receptionist that can handle appointments, answer questions, and register requests. It instructs the AI to simulate information lookups (availability, schedules, etc.) by generating realistic example data.
+
+### Prompt Structure
+
+The default prompt follows this structure:
+
+```
+# IDENTIDAD
+- Name, language, role, and personality description
+
+# REGLAS GLOBALES DE CONVERSACIÓN
+- Response timing and length guidelines
+- Tone and communication style
+- Data handling and confirmation patterns
+- Information simulation instructions
+
+# FLUJO CONVERSACIONAL
+## ESTADO 1: [State Name]
+- ID: state_identifier
+- Description: What this state handles
+- Instructions: Step-by-step actions
+- Examples: Sample phrases
+- Transitions: Conditions to move to next states
+```
+
+### Customizing the Prompt
+
+**Method 1: Modify the resource file (recommended for development)**
+
+Edit `src/main/resources/system-prompt.txt` directly and rebuild:
+```bash
+mvn package
+```
+
+**Method 2: Override via environment variable (recommended for deployment)**
+
+Set the `NOVA_PROMPT` environment variable with your custom prompt:
+
+```bash
+export NOVA_PROMPT="You are a helpful assistant specialized in..."
+```
+
+For multi-line prompts from a file:
+```bash
+export NOVA_PROMPT=$(cat custom-prompt.txt)
+```
+
+**Method 3: Load custom prompt in Docker**
+
+Mount your custom prompt file as a volume:
+```bash
+docker run -e NOVA_PROMPT="$(cat custom-prompt.txt)" ...
+```
+
+### Prompt Design Best Practices
+
+1. **Keep responses concise**: Instruct for 2-3 sentence responses to maintain natural conversation flow in voice
+2. **Define clear states**: Use a state machine approach with explicit transitions
+3. **Provide examples**: Include sample phrases for each state to guide the AI's tone
+4. **Simulate data when needed**: For proof-of-concept, instruct the AI to generate realistic example data (dates, times, availability) instead of requiring tool integration
+5. **Use natural language**: Write instructions in clear, natural language rather than code-like structures
+6. **Language consistency**: Ensure the prompt language matches the expected conversation language
+
+### Example Customization for Different Use Cases
+
+**Technical Support Bot (English):**
+```
+# IDENTITY
+Name: Alex
+Language: English
+Role: Technical Support Assistant
+
+You are Alex, a friendly technical support assistant. Guide users through troubleshooting
+steps clearly and patiently. When you need to check system status or logs, simulate
+looking up realistic diagnostic information.
+
+# GLOBAL RULES
+- Keep explanations simple and avoid jargon
+- Ask one diagnostic question at a time
+- Confirm user's issue before providing solutions
+...
+```
+
+**Appointment Scheduler (Bilingual):**
+```
+# IDENTIDAD / IDENTITY
+Nombre/Name: Sam
+Idiomas/Languages: Español e Inglés
+
+Eres Sam, un asistente bilingüe. Detecta el idioma del usuario y responde en ese idioma.
+You are Sam, a bilingual assistant. Detect the user's language and respond accordingly.
+...
+```
+
+### Fallback Behavior
+
+If `system-prompt.txt` cannot be loaded from resources, the system falls back to a simple prompt:
+```
+"You are a friendly assistant. The user and you will engage in a spoken dialog
+exchanging the transcripts of a natural real-time conversation. Keep your responses short,
+generally two or three sentences for chatty scenarios."
+```
+
+This ensures the application continues to function even if the custom prompt is missing.
+
+### Verification
+
+After starting the application, check the logs for:
+```
+Successfully loaded system prompt from resources (XXXX characters)
+```
+
+Or if using the fallback:
+```
+Warning: Could not find /system-prompt.txt in resources. Using fallback prompt.
+```
 
 ## Networking Requirements
 
@@ -160,6 +299,52 @@ Note: mjSIP lacks uPNP, ICE, or STUN capabilities - instance must have proper se
 - **RxJava/Reactor** - Reactive streams for async processing
 - **Logback** - Logging framework
 
+## Amazon Nova Sonic Limits and Regional Availability
+
+**Service Quotas** (per AWS account per region):
+- **RPM (Requests Per Minute)**: 2,000 requests/minute
+- **TPM (Tokens Per Minute)**: 2,000,000 tokens/minute
+- **Concurrent Sessions**: 20 active sessions maximum
+- **Audio Token Rate**: ~150 tokens per second of audio (4,500 tokens/minute)
+
+**Available Regions**:
+- **US East (N. Virginia)** - `us-east-1` (primary region)
+- **Europe (Stockholm)** - `eu-north-1`
+- **Asia Pacific (Tokyo)** - `ap-northeast-1`
+
+⚠️ **Critical Limitation**: The code currently has the region hardcoded to `us-east-1` in `NovaStreamerFactory.java:54`. To deploy in other regions or implement multi-region architecture, this must be changed to use an environment variable (see `docs/OPERACIONES.md` for details).
+
+**Impact on Capacity**:
+- Maximum 20 concurrent calls per region regardless of instance size
+- To exceed 20 concurrent calls, multi-region deployment is required
+- Each region provides independent quota of 20 sessions
+- See `docs/INFRAESTRUCTURA-Y-ESCALABILIDAD.md` for multi-region architectures
+
+## Capacity Planning and Cost Analysis
+
+For detailed information on infrastructure sizing, scalability strategies, and cost estimates, see the technical documentation in `/docs`:
+
+- **[Infrastructure and Scalability](docs/INFRAESTRUCTURA-Y-ESCALABILIDAD.md)**: Capacity by instance type, architectural patterns (single-instance, multi-instance with HA, multi-region), network configuration
+- **[Costs and Pricing](docs/COSTOS-Y-PRECIOS.md)**: Nova Sonic pricing, cost scenarios (5-500 calls/day), regional comparisons, optimization strategies
+- **[Operations](docs/OPERACIONES.md)**: Monitoring, known architectural limitations, troubleshooting guide
+
+**Quick Reference - Capacity by Instance Type**:
+
+| Instance Type | vCPU | RAM | Max Concurrent Calls | Use Case |
+|--------------|------|-----|---------------------|----------|
+| t3.micro | 2 | 1 GB | 3-5 | Development/POC |
+| t3.small | 2 | 2 GB | 10-15 | Testing |
+| t3.medium | 2 | 4 GB | 20* | Production (small) |
+| c5.large | 2 | 4 GB | 20* | Production (dedicated CPU) |
+
+\* Limited by Nova Sonic quota (20 sessions/region), not by instance resources
+
+**Quick Reference - Cost Estimate** (100 calls/day, 5 min average):
+- Nova Sonic: ~$960/month (~93% of total cost)
+- Infrastructure (t3.medium): ~$30/month
+- Data Transfer & Logs: ~$40/month
+- **Total: ~$1,030/month** (~$0.41 per call)
+
 ## Important Notes
 
 - Java 9+ compatibility (configured for Java 9 target)
@@ -169,3 +354,4 @@ Note: mjSIP lacks uPNP, ICE, or STUN capabilities - instance must have proper se
 - Greeting audio played on session start (configurable via GREETING_FILENAME)
 - Error audio (error.wav) played on stream errors
 - All audio files must be WAV format, transcoded to PCM_SIGNED 8kHz 16-bit mono
+- **This is a proof of concept**: See `docs/OPERACIONES.md` for list of limitations before considering production deployment

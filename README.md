@@ -1,174 +1,187 @@
-# Nova S2S VoIP Gateway
+# Gateway VoIP Nova S2S
 
-This project contains an implementation of a SIP endpoint that acts as a gateway to Nova Sonic speech to speech.
-In other words, you can call a phone number and talk to Nova Sonic.
+Este proyecto contiene una implementación de un endpoint SIP que actúa como gateway hacia Nova Sonic speech-to-speech de Amazon.
+En otras palabras, puedes llamar a un número de teléfono y hablar con Nova Sonic.
 
 <!-- TOC -->
-* [How does this work?](#how-does-this-work-)
-* [Getting started with ECS and CDK](#getting-started-with-ecs-and-cdk)
-* [Getting started with EC2](#getting-started-with-ec2)
-* [Third Party Dependencies of Note](#third-party-dependencies-of-note)
-* [Environment Variables](#environment-variables)
-* [Networking](#networking)
-* [Build](#build)
-* [Maven settings.xml](#maven-settingsxml)
-* [Developer Guide](#developer-guide)
-* [License](#license)
+
+- [¿Cómo funciona?](#cómo-funciona)
+- [Comenzando con ECS y CDK](#comenzando-con-ecs-y-cdk)
+- [Comenzando con EC2](#comenzando-con-ec2)
+- [Dependencias de Terceros Importantes](#dependencias-de-terceros-importantes)
+- [Variables de Entorno](#variables-de-entorno)
+- [Redes](#redes)
+- [Compilación](#compilación)
+- [Configuración de Maven settings.xml](#configuración-de-maven-settingsxml)
+- [Guía para Desarrolladores](#guía-para-desarrolladores)
+- [Documentación Técnica](#documentación-técnica)
+- [Licencia](#licencia)
 <!-- TOC -->
 
-Requirements:
-* A SIP account on a SIP server.  There are a number of options for this, whether it be a public VoIP provider or an account on your own PBX.
-* Your workstation should have Node.js installed.  This is required for CDK.  See https://nodejs.org/en/download.
-* Your workstation should have CDK installed.  See https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html.
+**Requisitos:**
 
-You should have some knowledge of Voice over IP (VoIP) and SIP.  
+- Una cuenta SIP en un servidor SIP. Hay varias opciones disponibles, ya sea un proveedor VoIP público o una cuenta en tu propio PBX.
+- Tu estación de trabajo debe tener Node.js instalado. Esto es requerido para CDK. Ver https://nodejs.org/en/download.
+- Tu estación de trabajo debe tener CDK instalado. Ver https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html.
 
-Please be aware that this is just a proof of concept and shouldn't be considered production ready code.
+Debes tener conocimientos básicos de Voice over IP (VoIP) y SIP.
 
-## How does this work?  
+**⚠️ Nota Importante:** Este es solo una prueba de concepto y no debe considerarse código listo para producción.
 
-This application acts as a SIP user agent.  When it starts it registers with a SIP server.  Upon receiving a call it will answer, establish the media session (over RTP), start a session with Nova Sonic, and bridge audio between RTP and Nova Sonic.  Audio received via RTP is sent to Nova Sonic and audio received from Nova Sonic is sent to the caller via RTP.
+## ¿Cómo funciona?
+
+Esta aplicación actúa como un agente de usuario SIP. Cuando inicia, se registra con un servidor SIP. Al recibir una llamada, responderá, establecerá la sesión de medios (sobre RTP), iniciará una sesión con Nova Sonic y puenteará el audio entre RTP y Nova Sonic. El audio recibido vía RTP se envía a Nova Sonic y el audio recibido de Nova Sonic se envía a la persona que llama vía RTP.
 
 ![](flow.png)
 
-## Getting started with ECS and CDK
+## Comenzando con ECS y CDK
 
-This application can run in an EC2 backed ECS container running in host mode.  This enables it to bind large UDP port ranges that are required for RTP.  This guide details how to install using infrastructure as code with CDK.
+Esta aplicación puede ejecutarse en un contenedor ECS respaldado por EC2 corriendo en modo host. Esto le permite enlazar rangos grandes de puertos UDP que son requeridos para RTP. Esta guía detalla cómo instalar usando infraestructura como código con CDK.
 
 ![](architecture.png)
 
-Additional Requirements:
-* Your workstation should have Docker installed and Docker should be running.  This is required to build the Docker image.  See https://docs.docker.com/get-started/get-docker/.
+**Requisitos Adicionales:**
 
-Installation:
-1. Build the Maven project.  See the build section for details.
-2. Copy `target/s2s-voip-gateway-<version>.jar` to the docker/ directory. 
-3. Copy cdk-ecs/cdk.context.json.template to cdk-ecs/cdk.context.json
-4. Open cdk-ecs/cdk.context.json in your favorite text editor and set each of the configuration parameters.
-5. From a terminal run the following:
-   ```
+- Tu estación de trabajo debe tener Docker instalado y Docker debe estar corriendo. Esto es requerido para construir la imagen Docker. Ver https://docs.docker.com/get-started/get-docker/.
+
+**Instalación:**
+
+1. Compila el proyecto Maven. Ver la sección de compilación para detalles.
+2. Copia `target/s2s-voip-gateway-<version>.jar` al directorio docker/
+3. Copia `cdk-ecs/cdk.context.json.template` a `cdk-ecs/cdk.context.json`
+4. Abre `cdk-ecs/cdk.context.json` en tu editor de texto favorito y configura cada uno de los parámetros.
+5. Desde una terminal ejecuta lo siguiente:
+   ```bash
    cd cdk-ecs
    npm install
    cdk bootstrap
    cdk deploy
    ```
-6. Once the project is fully deployed try calling the phone number or extension for your SIP account.  The gateway should answer immediately and greet you.
-7. Converse with Nova Sonic. 
+6. Una vez que el proyecto esté completamente desplegado, intenta llamar al número de teléfono o extensión de tu cuenta SIP. El gateway debe responder inmediatamente y saludarte.
+7. Conversa con Nova Sonic.
 
-What does this CDK stack do?
-* Create a VPC for your installation
-* Create VPC endpoints for Elastic Container Registry (ECR)
-* Create an Elastic Container Service (ECS) cluster
-* Create an auto-scaling group
-* Create task execution and task roles
-* Create secrets for your SIP credentials
-* Create a task and service for VoIP Gateway
+**¿Qué hace este stack de CDK?**
 
-Clean-up:
-```
+- Crea un VPC para tu instalación
+- Crea endpoints de VPC para Elastic Container Registry (ECR)
+- Crea un clúster de Elastic Container Service (ECS)
+- Crea un grupo de auto-escalado
+- Crea roles de ejecución de tareas y tareas
+- Crea secretos para tus credenciales SIP
+- Crea una tarea y servicio para el Gateway VoIP
+
+**Limpieza:**
+
+```bash
 cd cdk-ecs
 cdk destroy
 ```
 
-## Getting started with EC2
+## Comenzando con EC2
 
-The Nova S2S VoIP Gateway can run in a configuration as simple as a single EC2 instance.  If you're doing development and testing changes this is the recommended approach.  
+El Gateway VoIP Nova S2S puede ejecutarse en una configuración tan simple como una sola instancia EC2. Si estás desarrollando y probando cambios, este es el enfoque recomendado.
 
-We've included a CDK stack to create an EC2 instance with the proper permissions and security groups configured.  To install it, do the following:
-1. If you don't already have a keypair, create one from the EC2 console.  This is needed to authenticate to your instance.
-2. (optional) If you prefer to use an existing VPC, edit cdk-ec2-instance/bin/cdk.ts, uncomment the line with vpcId and update it to your existing VPC.  The VPC must have public subnets.
-3. Open cdk-ec2-instance/bin/cdk.ts in a text editor and update keyPairName to the name of the existing or newly created keypair.
-4. From a terminal run the following:
-   ```
+Hemos incluido un stack de CDK para crear una instancia EC2 con los permisos apropiados y grupos de seguridad configurados. Para instalarlo, haz lo siguiente:
+
+1. Si aún no tienes un keypair, crea uno desde la consola EC2. Esto es necesario para autenticarte en tu instancia.
+2. (opcional) Si prefieres usar un VPC existente, edita `cdk-ec2-instance/bin/cdk.ts`, descomenta la línea con vpcId y actualízala a tu VPC existente. El VPC debe tener subnets públicas.
+3. Abre `cdk-ec2-instance/bin/cdk.ts` en un editor de texto y actualiza keyPairName al nombre del keypair existente o recién creado.
+4. Desde una terminal ejecuta lo siguiente:
+   ```bash
    cd cdk-ec2-instance
    npm install
    cdk bootstrap
    cdk deploy
    ```
-5. CDK will output the IP address of your newly created EC2 instance.
+5. CDK mostrará la dirección IP de tu instancia EC2 recién creada.
 
-What does this CDK stack do?
-* Create a new VPC for your instance (unless configured to use an existing one)  
-* Create an IAM role for your instance
-* Create security groups for your instance
-* Create the EC2 instance with Amazon Linux, configured to install a JDK (Amazon Corretto), Maven, and Git.
+**¿Qué hace este stack de CDK?**
 
-To run the project:
-1. SSH into the EC2 instance using the keypair from step 1 of the installation guide and IP address from step 5.
-2. Copy the project from your local computer or git clone it to your EC2 instance.
-3. Configure your Maven settings.xml as detailed in the Maven settings.xml section.
-4. Run the project as follows: `./run.sh` (this will compile and execute the main class)
-5. Watch for the SIP registration.  Make sure it gets a 200 response.  If it doesn't your credentials may be incorrect.
-6. Call the phone number or extension for your SIP line.  The gateway should answer immediately and greet you.
-7. Converse with Nova Sonic.
-8. Hit Ctrl-C to exit.
+- Crea un nuevo VPC para tu instancia (a menos que esté configurado para usar uno existente)
+- Crea un rol IAM para tu instancia
+- Crea grupos de seguridad para tu instancia
+- Crea la instancia EC2 con Amazon Linux, configurada para instalar un JDK (Amazon Corretto), Maven y Git
 
-Clean-up:
+**Para ejecutar el proyecto:**
 
-From a terminal run the following:
-   ```
-   cd cdk-ec2-instance
-   cdk destroy
-   ```
+1. Conecta por SSH a la instancia EC2 usando el keypair del paso 1 de la guía de instalación y la dirección IP del paso 5.
+2. Copia el proyecto desde tu computadora local o clónalo con git en tu instancia EC2.
+3. Configura tu Maven settings.xml como se detalla en la sección de configuración de Maven settings.xml.
+4. Ejecuta el proyecto de la siguiente manera: `./run.sh` (esto compilará y ejecutará la clase principal)
+5. Observa el registro SIP. Asegúrate de que obtenga una respuesta 200. Si no, tus credenciales pueden ser incorrectas.
+6. Llama al número de teléfono o extensión de tu línea SIP. El gateway debe responder inmediatamente y saludarte.
+7. Conversa con Nova Sonic.
+8. Presiona Ctrl-C para salir.
 
-## Third Party Dependencies of Note
+**Limpieza:**
 
-This project utilizes a fork of the mjSIP project, which can be found at https://github.com/haumacher/mjSIP, which is licensed under GPLv2.
+Desde una terminal ejecuta lo siguiente:
 
-## Environment Variables
-
-This project can be configured to run via the `.mjsip-ua` configuration file OR by setting environment variables.  Below is a list of the environment variables in use:
-
-* AUTH_USER - username for authentication with SIP server
-* AUTH_PASSWORD - password for authentication with SIP server
-* AUTH_REALM - the SIP realm to use for authentication
-* DEBUG_SIP - true|false to enable/disable logging SIP packets
-* DISPLAY_NAME - the display name to send for your SIP address
-* GREETING_FILENAME - the name of the wav file to play as a greeting.  Can be an absolute path or in the classpath.
-* MEDIA_ADDRESS - the IP address to use for RTP media traffic.  By default it will source the address from your network interfaces.
-* MEDIA_PORT_BASE - the first RTP port to use for audio traffic
-* MEDIA_PORT_COUNT - the size of the RTP port pool used for audio traffic
-* NOVA_PROMPT - the prompt to use with Amazon Nova.  The default value can be found in NovaMediaConfig.java.
-* NOVA_VOICE_ID - the Amazon Nova Sonic voice to use.  See https://docs.aws.amazon.com/nova/latest/userguide/available-voices.html.  Default is matthew.
-* SIP_KEEPALIVE_TIME - frequency in milliseconds to send keep-alive packets
-* SIP_SERVER - the hostname or IP address of the SIP server to register with.  Required if running in environment variable mode.
-* SIP_USER - equivalent of sip-user from `.mjsip-ua`, generally the same as AUTH_USER
-* SIP_VIA_ADDR - the address to send in SIP packets for the Via field.  By default it will source the address from your network interfaces.
-
-If SIP_SERVER is set the application will pull configuration from environment variables.  If it is not set it will use the `.mjsip-ua` file.
-
-## Networking
-
-mjSIP doesn't contain any uPNP, ICE, or STUN capabilities, so it's necessary that your instance be configured with the proper security groups to allow VoIP traffic.
-
-Inbound rules:
-* Permit inbound UDP traffic on port 5060 (SIP port)
-* Permit inbound UDP traffic on port range 10000-20000 (RTP ephemeral ports).  The range can be set via the MEDIA_PORT_BASE and MEDIA_PORT_COUNT environment variables.  Set this to an appropriate value for your configuration.
-
-Outbound rules:
-* Permit all outbound.
-
-If you want to override addresses that are used with SIP traffic you can do so by running in environment variable mode.  See Environment Variables for more information on how to do this and what can be configured.
-
-## Build
-
-The Nova S2S VoIP Gateway is a Java Maven project.  As such it requires a JDK to build.  The project is configured for
-Java 9 compatibility, but can be built with much more recent releases.  Here are some options:
-* Corretto: https://aws.amazon.com/corretto
-* OpenJDK: https://developers.redhat.com/products/openjdk/overview
-* Oracle: https://www.oracle.com/java/technologies/downloads/
-
-Additionally, Apache Maven is required to do the build.  This can be downloaded from https://maven.apache.org/ or installed on Amazon Linux using the command `sudo yum install maven`.  Unzip Maven in a place where you'll be able to find it again. See "Maven settings.xml" below for details about configuring Maven.
-
-To build the project, open a terminal and cd to the project directory.  Run "mvn package" (you may need to put the full /path/to/maven/bin/mvn if the bin directory is not in your system PATH).
-
-Maven will build the project and create an s2s-voip-gateway*.jar file in the target/ directory.
-
-## Maven settings.xml
-
-mjSIP is distributed from a GitHub Maven repository.  Unfortunately, GitHub Maven repositories require credentials.  You will need to set up a classic API token with GitHub (https://github.com/settings/tokens), if you haven't already, and configure that in your ~/.m2/settings.xml file:
-
+```bash
+cd cdk-ec2-instance
+cdk destroy
 ```
+
+## Dependencias de Terceros Importantes
+
+Este proyecto utiliza un fork del proyecto mjSIP, que se puede encontrar en https://github.com/haumacher/mjSIP, el cual está licenciado bajo GPLv2.
+
+## Variables de Entorno
+
+Este proyecto puede configurarse para ejecutarse a través del archivo de configuración `.mjsip-ua` O configurando variables de entorno. A continuación se muestra una lista de las variables de entorno en uso:
+
+- **AUTH_USER** - nombre de usuario para autenticación con el servidor SIP
+- **AUTH_PASSWORD** - contraseña para autenticación con el servidor SIP
+- **AUTH_REALM** - el reino SIP a usar para autenticación
+- **DEBUG_SIP** - true|false para habilitar/deshabilitar el registro de paquetes SIP
+- **DISPLAY_NAME** - el nombre para mostrar a enviar para tu dirección SIP
+- **GREETING_FILENAME** - el nombre del archivo wav a reproducir como saludo. Puede ser una ruta absoluta o en el classpath.
+- **MEDIA_ADDRESS** - la dirección IP a usar para el tráfico de medios RTP. Por defecto obtendrá la dirección de tus interfaces de red.
+- **MEDIA_PORT_BASE** - el primer puerto RTP a usar para tráfico de audio
+- **MEDIA_PORT_COUNT** - el tamaño del pool de puertos RTP usado para tráfico de audio
+- **NOVA_PROMPT** - el prompt a usar con Amazon Nova. El valor por defecto se puede encontrar en NovaMediaConfig.java.
+- **NOVA_VOICE_ID** - la voz de Amazon Nova Sonic a usar. Ver https://docs.aws.amazon.com/nova/latest/userguide/available-voices.html. Por defecto es matthew.
+- **SIP_KEEPALIVE_TIME** - frecuencia en milisegundos para enviar paquetes keep-alive
+- **SIP_SERVER** - el nombre de host o dirección IP del servidor SIP con el cual registrarse. Requerido si se ejecuta en modo de variables de entorno.
+- **SIP_USER** - equivalente a sip-user del archivo `.mjsip-ua`, generalmente lo mismo que AUTH_USER
+- **SIP_VIA_ADDR** - la dirección a enviar en paquetes SIP para el campo Via. Por defecto obtendrá la dirección de tus interfaces de red.
+
+Si SIP_SERVER está configurado, la aplicación tomará la configuración de las variables de entorno. Si no está configurado, usará el archivo `.mjsip-ua`.
+
+## Redes
+
+mjSIP no contiene capacidades de uPNP, ICE o STUN, por lo que es necesario que tu instancia esté configurada con los grupos de seguridad apropiados para permitir tráfico VoIP.
+
+**Reglas de entrada:**
+
+- Permitir tráfico UDP entrante en el puerto 5060 (puerto SIP)
+- Permitir tráfico UDP entrante en el rango de puertos 10000-20000 (puertos efímeros RTP). El rango puede configurarse a través de las variables de entorno MEDIA_PORT_BASE y MEDIA_PORT_COUNT. Configura esto a un valor apropiado para tu configuración.
+
+**Reglas de salida:**
+
+- Permitir todo el tráfico saliente.
+
+Si quieres sobrescribir las direcciones que se usan con el tráfico SIP, puedes hacerlo ejecutando en modo de variables de entorno. Ver Variables de Entorno para más información sobre cómo hacer esto y qué se puede configurar.
+
+## Compilación
+
+El Gateway VoIP Nova S2S es un proyecto Java Maven. Como tal, requiere un JDK para compilar. El proyecto está configurado para compatibilidad con Java 9, pero puede compilarse con versiones mucho más recientes. Aquí hay algunas opciones:
+
+- Corretto: https://aws.amazon.com/corretto
+- OpenJDK: https://developers.redhat.com/products/openjdk/overview
+- Oracle: https://www.oracle.com/java/technologies/downloads/
+
+Además, se requiere Apache Maven para hacer la compilación. Esto puede descargarse desde https://maven.apache.org/ o instalarse en Amazon Linux usando el comando `sudo yum install maven`. Descomprime Maven en un lugar donde puedas encontrarlo nuevamente. Ver "Configuración de Maven settings.xml" abajo para detalles sobre cómo configurar Maven.
+
+Para compilar el proyecto, abre una terminal y navega al directorio del proyecto. Ejecuta `mvn package` (puede que necesites poner la ruta completa /path/to/maven/bin/mvn si el directorio bin no está en tu PATH del sistema).
+
+Maven compilará el proyecto y creará un archivo s2s-voip-gateway\*.jar en el directorio target/.
+
+## Configuración de Maven settings.xml
+
+mjSIP se distribuye desde un repositorio Maven de GitHub. Desafortunadamente, los repositorios Maven de GitHub requieren credenciales. Necesitarás configurar un token de API clásico con GitHub (https://github.com/settings/tokens), si aún no lo has hecho, y configurarlo en tu archivo ~/.m2/settings.xml:
+
+```xml
 <?xml version="1.0" encoding="UTF-8"?>
 
 <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
@@ -177,27 +190,33 @@ mjSIP is distributed from a GitHub Maven repository.  Unfortunately, GitHub Mave
     <servers>
         <server>
             <id>github</id>
-            <username>YOUR_USERNAME</username>
-            <password>YOUR_AUTH_TOKEN</password>
+            <username>TU_USUARIO</username>
+            <password>TU_TOKEN_DE_AUTENTICACION</password>
         </server>
     </servers>
 </settings>
 ```
 
-## Developer Guide
+## Guía para Desarrolladores
 
-The entrypoint for the application is NovaSonicVoipGateway.java.  This class contains a main method and configures the user agent based on what it finds in environment variables.
+El punto de entrada para la aplicación es NovaSonicVoipGateway.java. Esta clase contiene un método main y configura el agente de usuario basándose en lo que encuentra en las variables de entorno.
 
-The main entry point for the Nova integration is in NovaStreamerFactory.java, where the Bedrock client is instantiated and the audio streams are established.
+El punto de entrada principal para la integración con Nova está en NovaStreamerFactory.java, donde se instancia el cliente de Bedrock y se establecen los flujos de audio.
 
-By default, the gateway includes a toolset that gives Nova Sonic the ability to retrieve the date and time, but this can be extended to do much more.  The example tools can be found in com.example.s2s.voipgateway.nova.tools.
+Por defecto, el gateway incluye un conjunto de herramientas que le da a Nova Sonic la capacidad de recuperar la fecha y hora, pero esto puede extenderse para hacer mucho más. Las herramientas de ejemplo se pueden encontrar en com.example.s2s.voipgateway.nova.tools.
 
-New tools can be developed by extending the AbstractNovaS2SEventHandler class and implementing the functionality you desire.  See the javadoc in AbstractNovaS2SEventHandler for more information.  An easy starting point for new tools would be to copy the DateTimeNovaS2SEventHandler to a new file, replacing the tools with something relevant to your use case.
+Nuevas herramientas pueden desarrollarse extendiendo la clase AbstractNovaS2SEventHandler e implementando la funcionalidad que desees. Ver el javadoc en AbstractNovaS2SEventHandler para más información. Un punto de partida fácil para nuevas herramientas sería copiar DateTimeNovaS2SEventHandler a un nuevo archivo, reemplazando las herramientas con algo relevante a tu caso de uso.
 
-The tool set is instantiated in NovaStreamerFactory.createMediaStreamer().  If you create new tools you'll need to update the NovaS2SEventHandler to instantiate your new class.
+El conjunto de herramientas se instancia en NovaStreamerFactory.createMediaStreamer(). Si creas nuevas herramientas necesitarás actualizar el NovaS2SEventHandler para instanciar tu nueva clase.
 
+## Documentación Técnica
 
+Para información detallada sobre planificación de infraestructura, análisis de costos, escalabilidad y operaciones, consulta la documentación técnica en la carpeta `/docs`:
 
-## License
+- **[Infraestructura y Escalabilidad](docs/INFRAESTRUCTURA-Y-ESCALABILIDAD.md)** - Capacidad por tipo de instancia, límites técnicos, arquitecturas de despliegue (single-instance y multi-instancia), estrategias multi-región
+- **[Costos y Precios](docs/COSTOS-Y-PRECIOS.md)** - Pricing de Nova Sonic, análisis de costos por escenario, comparativas por región y tipo de instancia
+- **[Operaciones](docs/OPERACIONES.md)** - Monitoreo, limitaciones arquitecturales actuales, troubleshooting y guía operacional
 
-MIT-0 License.  See the LICENSE file for more details.
+## Licencia
+
+Licencia MIT-0. Ver el archivo LICENSE para más detalles.
