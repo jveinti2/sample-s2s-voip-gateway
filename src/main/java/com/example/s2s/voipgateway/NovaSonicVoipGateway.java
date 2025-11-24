@@ -123,8 +123,16 @@ public class NovaSonicVoipGateway extends RegisteringMultipleUAS {
         NovaMediaConfig mediaConfig = new NovaMediaConfig();
         Map<String, String> environ = System.getenv();
         mediaConfig.setNovaVoiceId(environ.getOrDefault("NOVA_VOICE_ID","en_us_matthew"));
+
+        // Load prompt: prioritize NOVA_PROMPT env var, otherwise load from resources based on CLIENT_ID
         if (isConfigured(environ.get("NOVA_PROMPT"))) {
             mediaConfig.setNovaPrompt(environ.get("NOVA_PROMPT"));
+            LOG.info("Using NOVA_PROMPT from environment variable");
+        } else {
+            String clientId = environ.getOrDefault("CLIENT_ID", "keralty");
+            String basePrompt = NovaMediaConfig.loadBasePrompt(clientId);
+            mediaConfig.setNovaPrompt(basePrompt);
+            LOG.info("Loaded base prompt for CLIENT_ID: {}", clientId);
         }
 
         if (isConfigured(environ.get("SIP_SERVER"))) {

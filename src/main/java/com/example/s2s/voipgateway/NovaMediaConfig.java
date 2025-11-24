@@ -1,9 +1,14 @@
 package com.example.s2s.voipgateway;
 
+import com.example.s2s.voipgateway.nova.context.PromptFragmentLoader;
 import org.mjsip.ua.MediaConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class NovaMediaConfig extends MediaConfig {
+    private static final Logger log = LoggerFactory.getLogger(NovaMediaConfig.class);
     private static final String DEFAULT_VOICE_ID = "en_us_matthew";
+    private static final String DEFAULT_CLIENT_ID = "keralty";
     private static final String DEFAULT_PROMPT = "You are a friendly assistant. The user and you will engage in a spoken dialog " +
             "exchanging the transcripts of a natural real-time conversation. Keep your responses short, " +
             "generally two or three sentences for chatty scenarios.";
@@ -54,5 +59,39 @@ public class NovaMediaConfig extends MediaConfig {
 
     public void setNovaTemperature(float novaTemperature) {
         this.novaTemperature = novaTemperature;
+    }
+
+    /**
+     * Loads the base prompt for the specified client from resources.
+     * Falls back to default client if specified client not found.
+     * Falls back to hardcoded DEFAULT_PROMPT if no resources found.
+     *
+     * @param clientId The client ID (e.g., "keralty", "colmedica")
+     * @return The base prompt content
+     */
+    public static String loadBasePrompt(String clientId) {
+        String clientToLoad = (clientId == null || clientId.isEmpty()) ? DEFAULT_CLIENT_ID : clientId;
+        String resourcePath = "/prompts/" + clientToLoad + "/base-prompt.txt";
+
+        log.info("Loading base prompt for client: {} from: {}", clientToLoad, resourcePath);
+
+        String prompt = PromptFragmentLoader.loadFragment(resourcePath);
+
+        if (prompt.isEmpty()) {
+            log.warn("Base prompt not found for client: {}. Trying default client...", clientToLoad);
+            resourcePath = "/prompts/default/base-prompt.txt";
+            prompt = PromptFragmentLoader.loadFragment(resourcePath);
+
+            if (prompt.isEmpty()) {
+                log.warn("Default base prompt not found either. Using hardcoded fallback.");
+                return DEFAULT_PROMPT;
+            } else {
+                log.info("Successfully loaded default base prompt ({} characters)", prompt.length());
+            }
+        } else {
+            log.info("Successfully loaded base prompt for client '{}' ({} characters)", clientToLoad, prompt.length());
+        }
+
+        return prompt;
     }
 }

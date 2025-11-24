@@ -4,7 +4,7 @@ import com.example.s2s.voipgateway.constants.MediaTypes;
 import com.example.s2s.voipgateway.constants.SonicAudioConfig;
 import com.example.s2s.voipgateway.constants.SonicAudioTypes;
 import com.example.s2s.voipgateway.nova.event.*;
-import com.example.s2s.voipgateway.nova.tools.DateTimeNovaS2SEventHandler;
+import com.example.s2s.voipgateway.nova.context.HybridEventHandler;
 import com.example.s2s.voipgateway.NovaMediaConfig;
 import com.example.s2s.voipgateway.NovaSonicAudioInput;
 import com.example.s2s.voipgateway.NovaSonicAudioOutput;
@@ -58,7 +58,7 @@ public class NovaStreamerFactory implements StreamerFactory {
         String promptName = UUID.randomUUID().toString();
 
         NovaS2SBedrockInteractClient novaClient = new NovaS2SBedrockInteractClient(client, "amazon.nova-sonic-v1:0");
-        NovaS2SEventHandler eventHandler = new DateTimeNovaS2SEventHandler();
+        NovaS2SEventHandler eventHandler = new HybridEventHandler();
 
         log.info("Using system prompt: {}", mediaConfig.getNovaPrompt());
 
