@@ -34,7 +34,7 @@ public class NovaSonicVoipGateway extends RegisteringMultipleUAS {
     // Instance variables
     protected final NovaMediaConfig mediaConfig;
     protected final UAConfig uaConfig;
-    private StreamerFactory streamerFactory;
+    private NovaStreamerFactory streamerFactory;
     private RegistrationClient _rc;
     private SipKeepAlive keep_alive;
 
