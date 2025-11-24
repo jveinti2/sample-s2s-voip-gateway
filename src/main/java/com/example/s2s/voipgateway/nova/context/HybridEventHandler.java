@@ -5,6 +5,7 @@ import com.example.s2s.voipgateway.nova.event.NovaSonicEvent;
 import com.example.s2s.voipgateway.nova.event.PromptStartEvent;
 import com.example.s2s.voipgateway.nova.observer.InteractObserver;
 import com.example.s2s.voipgateway.nova.tools.DateTimeNovaS2SEventHandler;
+import com.example.s2s.voipgateway.nova.tools.EndCallEventHandler;
 import com.example.s2s.voipgateway.tracing.CallTracer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -32,12 +33,14 @@ public class HybridEventHandler extends AbstractNovaS2SEventHandler {
 
     private final DynamicContextLoaderEventHandler contextLoader;
     private final DateTimeNovaS2SEventHandler dateTimeHandler;
+    private final EndCallEventHandler endCallHandler;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public HybridEventHandler() {
         super();
         this.contextLoader = new DynamicContextLoaderEventHandler();
         this.dateTimeHandler = new DateTimeNovaS2SEventHandler();
+        this.endCallHandler = new EndCallEventHandler();
         log.info("HybridEventHandler initialized with context loader (CLIENT_ID: {}) and datetime tools",
             DynamicContextLoaderEventHandler.getClientId());
     }
@@ -46,6 +49,7 @@ public class HybridEventHandler extends AbstractNovaS2SEventHandler {
         super(tracer);
         this.contextLoader = new DynamicContextLoaderEventHandler(tracer);
         this.dateTimeHandler = new DateTimeNovaS2SEventHandler(tracer);
+        this.endCallHandler = new EndCallEventHandler(tracer);
         log.info("HybridEventHandler initialized with tracer for call_id={}",
                  tracer != null ? tracer.getCallId() : "null");
     }
@@ -54,6 +58,7 @@ public class HybridEventHandler extends AbstractNovaS2SEventHandler {
         super(outbound);
         this.contextLoader = new DynamicContextLoaderEventHandler(outbound);
         this.dateTimeHandler = new DateTimeNovaS2SEventHandler();
+        this.endCallHandler = new EndCallEventHandler();
         log.info("HybridEventHandler initialized with outbound observer");
     }
 
@@ -89,10 +94,15 @@ public class HybridEventHandler extends AbstractNovaS2SEventHandler {
                 dateTimeHandler.handleToolInvocation(toolUseId, toolName, content, output);
                 break;
 
+            case "endCall":
+                log.info("Routing to EndCallEventHandler");
+                endCallHandler.handleToolInvocation(toolUseId, toolName, content, output);
+                break;
+
             default:
                 log.warn("Unknown tool invoked: {}. No handler available.", toolName);
                 output.put("error", "Unknown tool: " + toolName);
-                output.put("availableTools", List.of("loadContext", "getDateTool", "getTimeTool"));
+                output.put("availableTools", List.of("loadContext", "getDateTool", "getTimeTool", "endCall"));
         }
 
         // GENERIC EXTRACTION (after delegation, output is populated)
@@ -129,16 +139,8 @@ public class HybridEventHandler extends AbstractNovaS2SEventHandler {
      * @param output Tool output/result
      */
     private void extractGeneric(String toolName, Map<String, Object> input, Map<String, Object> output) {
-        // RULE 1: loadContext tool → estado
-        // Generic: Extract whatever value is in the "context" parameter
-        if ("loadContext".equals(toolName) && input.containsKey("context")) {
-            String contextValue = String.valueOf(input.get("context"));
-            tracer.record("estado", contextValue);
-            log.debug("Extracted estado from loadContext: {}", contextValue);
-        }
-
-        // RULE 2: Output with "contextLoaded":true → estado
-        // Confirms context was successfully loaded
+        // RULE 1: Output with "contextLoaded":true → estado
+        // Only record from OUTPUT to avoid duplication (output is more reliable than input)
         if (Boolean.TRUE.equals(output.get("contextLoaded"))) {
             String contextType = (String) output.get("contextType");
             if (contextType != null && !contextType.isEmpty()) {
@@ -206,6 +208,13 @@ public class HybridEventHandler extends AbstractNovaS2SEventHandler {
         if (dateTimeConfig != null && dateTimeConfig.getTools() != null) {
             allTools.addAll(dateTimeConfig.getTools());
             log.debug("Added {} datetime tools", dateTimeConfig.getTools().size());
+        }
+
+        // Add endCall tool
+        PromptStartEvent.ToolConfiguration endCallConfig = endCallHandler.getToolConfiguration();
+        if (endCallConfig != null && endCallConfig.getTools() != null) {
+            allTools.addAll(endCallConfig.getTools());
+            log.debug("Added {} endCall tools", endCallConfig.getTools().size());
         }
 
         log.info("Merged tool configuration: {} total tools available", allTools.size());

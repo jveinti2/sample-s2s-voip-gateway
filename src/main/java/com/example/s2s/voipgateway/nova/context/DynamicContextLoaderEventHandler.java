@@ -12,6 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.File;
 import java.net.URL;
 import java.util.*;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Dynamic context loader that auto-discovers available contexts based on CLIENT_ID.
@@ -42,6 +44,7 @@ public class DynamicContextLoaderEventHandler extends AbstractNovaS2SEventHandle
     private static final Map<String, String> CONTEXT_FRAGMENTS = new HashMap<>();
     private static final List<String> AVAILABLE_CONTEXTS = new ArrayList<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final Set<String> loadedContexts = new HashSet<>(); // Cache per instance
 
     static {
         loadClientContexts();
@@ -139,6 +142,16 @@ public class DynamicContextLoaderEventHandler extends AbstractNovaS2SEventHandle
                 return;
             }
 
+            // CACHE CHECK: Return cached response if already loaded
+            if (loadedContexts.contains(contextName)) {
+                output.put("contextLoaded", true);
+                output.put("contextType", contextName);
+                output.put("cached", true);
+                output.put("message", "Context '" + contextName + "' already loaded (using cached version).");
+                log.info("Context '{}' already loaded for this call, returning cached response", contextName);
+                return;
+            }
+
             if (CONTEXT_FRAGMENTS.containsKey(contextName)) {
                 String instructions = CONTEXT_FRAGMENTS.get(contextName);
                 output.put("contextLoaded", true);
@@ -146,7 +159,10 @@ public class DynamicContextLoaderEventHandler extends AbstractNovaS2SEventHandle
                 output.put("instructions", instructions);
                 output.put("message", "Contexto cargado exitosamente: " + contextName +
                                      ". Procede con el flujo usando estas instrucciones.");
-                log.info("Context '{}' loaded successfully for tool use {}", contextName, toolUseId);
+
+                // Mark as loaded in cache
+                loadedContexts.add(contextName);
+                log.info("Context '{}' loaded successfully for tool use {} (first time)", contextName, toolUseId);
             } else {
                 output.put("contextLoaded", false);
                 output.put("error", "Context not found: " + contextName);

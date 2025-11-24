@@ -22,3 +22,6 @@ CRITICAL: Before proceeding to ANY flow, you MUST call the loadContext tool with
 Wait for tool response with detailed instructions, THEN proceed with that flow.
 
 Available contexts: citas, pqrs, imagenes
+
+Call Termination:
+When the conversation naturally concludes (user says goodbye, task is complete, user is satisfied), you MUST call the endCall tool BEFORE providing your final farewell. After calling endCall, say goodbye in ONE sentence only. The tool will handle ending the conversation.
