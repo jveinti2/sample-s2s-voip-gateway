@@ -1,6 +1,7 @@
 package com.example.s2s.voipgateway;
 
 import com.example.s2s.voipgateway.nova.NovaStreamerFactory;
+import com.example.s2s.voipgateway.tracing.CallTracer;
 import org.mjsip.config.OptionParser;
 import org.mjsip.media.MediaDesc;
 import org.mjsip.media.MediaSpec;
@@ -22,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import org.zoolu.net.SocketAddress;
 
 import java.util.Map;
+import java.util.UUID;
 
 
 /**
@@ -105,11 +107,43 @@ public class NovaSonicVoipGateway extends RegisteringMultipleUAS {
             @Override
             public void onUaIncomingCall(UserAgent ua, NameAddress callee, NameAddress caller,
                                          MediaDesc[] media_descs) {
-                LOG.info("Incomming call from: {}", callee.getAddress());
-                ua.accept(new MediaAgent(mediaConfig.getMediaDescs(), streamerFactory));
+                LOG.info("Incoming call from: {} to: {}", caller.getAddress(), callee.getAddress());
+
+                // Create call tracer
+                String callId = UUID.randomUUID().toString();
+                String ani = extractPhoneNumber(caller);
+                String dnis = extractPhoneNumber(callee);
+                String clientId = System.getenv().getOrDefault("CLIENT_ID", "keralty");
+
+                CallTracer tracer = new CallTracer(callId, ani, dnis, clientId);
+                LOG.info("Created CallTracer for call_id={}, ani={}, dnis={}", callId, ani, dnis);
+
+                // Create media agent with tracer
+                ua.accept(new MediaAgent(mediaConfig.getMediaDescs(), streamerFactory.withTracer(tracer)));
             }
         };
     }
+
+    /**
+     * Extracts phone number from SIP NameAddress.
+     * Handles formats like "sip:3001234567@server.com" or "<sip:+573001234567@server.com>"
+     *
+     * @param addr NameAddress containing the phone number
+     * @return Extracted phone number, or the full address string if extraction fails
+     */
+    private String extractPhoneNumber(NameAddress addr) {
+        if (addr == null || addr.getAddress() == null) {
+            return "unknown";
+        }
+
+        String fullAddress = addr.getAddress().toString();
+        // Remove "sip:" prefix and everything after "@"
+        String extracted = fullAddress.replaceAll("^sip:", "").replaceAll("@.*$", "");
+
+        // If result is empty or same as input, return original
+        return extracted.isEmpty() ? fullAddress : extracted;
+    }
+
     /**
      * The main method.
      */

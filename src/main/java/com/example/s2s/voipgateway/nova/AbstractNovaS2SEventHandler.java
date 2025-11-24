@@ -3,6 +3,7 @@ package com.example.s2s.voipgateway.nova;
 import com.example.s2s.voipgateway.nova.event.*;
 import com.example.s2s.voipgateway.nova.io.QueuedUlawInputStream;
 import com.example.s2s.voipgateway.nova.observer.InteractObserver;
+import com.example.s2s.voipgateway.tracing.CallTracer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -31,12 +32,22 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
     private String promptName;
     private boolean debugAudioOutput;
     private boolean playedErrorSound = false;
+    protected CallTracer tracer; // null-safe: tracing is optional
 
     public AbstractNovaS2SEventHandler() {
-        this(null);
+        this(null, null);
+    }
+
+    public AbstractNovaS2SEventHandler(CallTracer tracer) {
+        this(tracer, null);
     }
 
     public AbstractNovaS2SEventHandler(InteractObserver<NovaSonicEvent> outbound) {
+        this(null, outbound);
+    }
+
+    public AbstractNovaS2SEventHandler(CallTracer tracer, InteractObserver<NovaSonicEvent> outbound) {
+        this.tracer = tracer;
         this.outbound = outbound;
         debugAudioOutput = "true".equalsIgnoreCase(System.getenv().getOrDefault("DEBUG_AUDIO_OUTPUT", "false"));
     }
@@ -91,6 +102,9 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
     @Override
     public void onStart() {
         log.info("Session started, playing greeting.");
+        if (tracer != null) {
+            tracer.record("session", "started");
+        }
         String greetingFilename = System.getenv().getOrDefault("GREETING_FILENAME","hello-how.wav");
         try { playAudioFile(greetingFilename); }
         catch (FileNotFoundException e) {
@@ -100,6 +114,11 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
 
     @Override
     public void onError(Exception e) {
+        if (tracer != null) {
+            tracer.record("error", e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
+            tracer.record("status", "error");
+            tracer.flush();
+        }
         if (!playedErrorSound) {
             try {
                 playAudioFile(ERROR_AUDIO_FILE);
@@ -113,6 +132,10 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
     @Override
     public void onComplete() {
         log.info("Stream complete");
+        if (tracer != null) {
+            tracer.record("status", "completed");
+            tracer.flush();
+        }
     }
 
     @Override

@@ -4,6 +4,7 @@ import com.example.s2s.voipgateway.nova.AbstractNovaS2SEventHandler;
 import com.example.s2s.voipgateway.nova.event.PromptStartEvent;
 import com.example.s2s.voipgateway.nova.observer.InteractObserver;
 import com.example.s2s.voipgateway.nova.event.NovaSonicEvent;
+import com.example.s2s.voipgateway.tracing.CallTracer;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +49,10 @@ public class DynamicContextLoaderEventHandler extends AbstractNovaS2SEventHandle
 
     public DynamicContextLoaderEventHandler() {
         super();
+    }
+
+    public DynamicContextLoaderEventHandler(CallTracer tracer) {
+        super(tracer);
     }
 
     public DynamicContextLoaderEventHandler(InteractObserver<NovaSonicEvent> outbound) {

@@ -6,6 +6,7 @@ import com.example.s2s.voipgateway.constants.SonicAudioTypes;
 import com.example.s2s.voipgateway.nova.event.*;
 import com.example.s2s.voipgateway.nova.context.HybridEventHandler;
 import com.example.s2s.voipgateway.NovaMediaConfig;
+import com.example.s2s.voipgateway.tracing.CallTracer;
 import com.example.s2s.voipgateway.NovaSonicAudioInput;
 import com.example.s2s.voipgateway.NovaSonicAudioOutput;
 import com.example.s2s.voipgateway.nova.observer.InteractObserver;
@@ -36,9 +37,24 @@ public class NovaStreamerFactory implements StreamerFactory {
     private static final Logger log = LoggerFactory.getLogger(NovaStreamerFactory.class);
     private static final String ROLE_SYSTEM = "SYSTEM";
     private final NovaMediaConfig mediaConfig;
+    private CallTracer tracer; // null-safe: can be null if not set
 
     public NovaStreamerFactory(NovaMediaConfig mediaConfig) {
         this.mediaConfig = mediaConfig;
+        this.tracer = null;
+    }
+
+    /**
+     * Creates a copy of this factory with the specified tracer attached.
+     * This allows the factory to be reused while providing call-specific tracers.
+     *
+     * @param tracer The call tracer for this specific call
+     * @return A new StreamerFactory instance with the tracer attached
+     */
+    public StreamerFactory withTracer(CallTracer tracer) {
+        NovaStreamerFactory copy = new NovaStreamerFactory(this.mediaConfig);
+        copy.tracer = tracer;
+        return copy;
     }
 
     @Override
@@ -58,7 +74,7 @@ public class NovaStreamerFactory implements StreamerFactory {
         String promptName = UUID.randomUUID().toString();
 
         NovaS2SBedrockInteractClient novaClient = new NovaS2SBedrockInteractClient(client, "amazon.nova-sonic-v1:0");
-        NovaS2SEventHandler eventHandler = new HybridEventHandler();
+        NovaS2SEventHandler eventHandler = new HybridEventHandler(tracer);
 
         log.info("Using system prompt: {}", mediaConfig.getNovaPrompt());
 
