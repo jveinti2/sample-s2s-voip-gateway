@@ -111,7 +111,7 @@ public class DynamicContextLoaderEventHandler extends AbstractNovaS2SEventHandle
     }
 
     @Override
-    protected void handleToolInvocation(String toolUseId, String toolName, String content,
+    public void handleToolInvocation(String toolUseId, String toolName, String content,
                                        Map<String, Object> output) {
         if (!"loadContext".equals(toolName)) {
             log.warn("Unknown tool invoked: {}", toolName);

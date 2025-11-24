@@ -20,7 +20,7 @@ public class DateTimeNovaS2SEventHandler extends AbstractNovaS2SEventHandler {
     private static final String TIMEZONE = System.getenv().getOrDefault("TZ", "America/Los_Angeles");
 
     @Override
-    protected void handleToolInvocation(String toolUseId, String toolName, String content, Map<String, Object> output) {
+    public void handleToolInvocation(String toolUseId, String toolName, String content, Map<String, Object> output) {
         if (toolName == null) {
             log.warn("Received null toolName");
         } else {

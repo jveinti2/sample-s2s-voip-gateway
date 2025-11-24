@@ -47,7 +47,7 @@ public class HybridEventHandler extends AbstractNovaS2SEventHandler {
     }
 
     @Override
-    protected void handleToolInvocation(String toolUseId, String toolName, String content,
+    public void handleToolInvocation(String toolUseId, String toolName, String content,
                                        Map<String, Object> output) {
         if (toolName == null) {
             log.warn("Received null toolName for invocation {}", toolUseId);
