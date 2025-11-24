@@ -132,7 +132,7 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
      * @param content Content provided as a parameter to the invocation.
      * @param output The output node.
      */
-    protected abstract void handleToolInvocation(String toolUseId, String toolName, String content, Map<String,Object> output);
+    public abstract void handleToolInvocation(String toolUseId, String toolName, String content, Map<String,Object> output);
 
     @Override
     public void handleToolUse(JsonNode node, String toolUseId, String toolName, String content) {
