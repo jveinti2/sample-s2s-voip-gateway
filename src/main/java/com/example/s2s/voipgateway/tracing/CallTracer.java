@@ -7,126 +7,106 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
- * Simple call tracer that records events in a numbered line format.
+ * Simple call tracer that captures only external variables from the provider.
  *
- * Output format: {line_number}:{type}:{value}
+ * Output format: {type}:{value}
  * Example:
- *   1:call_id:abc123
- *   2:ani:3144779261
- *   3:estado:citas
- *   4:proceso:Centro Médico Keralty Norte
+ *   sip_call_id:1234567890abcdef@sip-provider.com
+ *   ani:573144779261
+ *   dnis:576105101000
+ *   client_id:keralty
  *
  * Design principles:
- * - Simple: No complex JSON structures
- * - Generic: Works for any client without code changes
- * - Non-invasive: AI does not participate in tracing
- * - Observable: Only captures existing data flows
+ * - Minimal: Only captures 4 external variables
+ * - No timestamps: Provider transcript includes all timing information
+ * - No events: Only initial variables for correlation with provider transcript
  */
 @Slf4j
-public class CallTracer {
+public class CallTracer implements AutoCloseable {
 
-    private final String callId;
+    private final String sipCallId;
     private final String ani;
     private final String dnis;
     private final String clientId;
-    private final List<String> entries = new ArrayList<>();
-    private int lineNumber = 1;
-    private final Instant startTime;
+    private final Path traceFile;
 
     /**
-     * Creates a new call tracer and records initial metadata.
+     * Creates a new call tracer and immediately writes external variables to file.
      *
-     * @param callId Unique identifier for this call
+     * @param sipCallId SIP Call-ID from provider (real interaction ID)
      * @param ani Automatic Number Identification (caller's phone number)
      * @param dnis Dialed Number Identification Service (called number)
      * @param clientId Client identifier (from CLIENT_ID env var)
      */
-    public CallTracer(String callId, String ani, String dnis, String clientId) {
-        this.callId = callId;
+    public CallTracer(String sipCallId, String ani, String dnis, String clientId) {
+        this.sipCallId = sipCallId;
         this.ani = ani;
         this.dnis = dnis;
         this.clientId = clientId;
-        this.startTime = Instant.now();
 
-        // Record initial metadata
-        record("call_id", callId);
-        record("ani", ani);
-        record("dnis", dnis);
-        record("client_id", clientId);
-        record("start_time", startTime.toString());
+        // Create trace file: logs/traces/{sip_call_id}.txt
+        // Note: SIP Call-ID may contain special characters, sanitize for filename
+        String sanitizedCallId = sanitizeFilename(sipCallId);
+        this.traceFile = Paths.get("logs", "traces", sanitizedCallId + ".txt");
 
-        log.info("CallTracer initialized for call_id={}, ani={}", callId, ani);
+        // Write immediately
+        writeExternalVariables();
+
+        log.info("CallTracer initialized: sip_call_id={}, ani={}", sipCallId, ani);
     }
 
     /**
-     * Records a single trace entry.
-     *
-     * @param type The type of entry (e.g., "estado", "proceso", "tool", "error")
-     * @param value The value to record
+     * Sanitizes a string to be safe for use as a filename.
+     * Replaces characters that are invalid in filenames with underscores.
      */
-    public synchronized void record(String type, String value) {
-        if (type == null || value == null) {
-            log.warn("Skipping null record: type={}, value={}", type, value);
-            return;
+    private String sanitizeFilename(String input) {
+        if (input == null) {
+            return "unknown";
         }
-
-        // Sanitize value: remove line breaks that could break format
-        String sanitizedValue = value.replaceAll("[\r\n]+", " ");
-
-        String entry = lineNumber++ + ":" + type + ":" + sanitizedValue;
-        entries.add(entry);
-
-        log.debug("Trace recorded: {}", entry);
+        // Replace invalid filename characters with underscore
+        return input.replaceAll("[<>:\"/\\\\|?*]", "_");
     }
 
     /**
-     * Flushes the trace to disk.
-     *
-     * Writes to: logs/traces/{call_id}.txt
-     *
-     * This method is idempotent and can be called multiple times.
-     * Each call will overwrite the previous file with updated content.
+     * Writes external variables to trace file.
      */
-    public synchronized void flush() {
+    private void writeExternalVariables() {
         try {
             // Create traces directory if it doesn't exist
-            Path dir = Paths.get("logs/traces");
-            Files.createDirectories(dir);
+            Files.createDirectories(traceFile.getParent());
 
-            // Append end metadata
-            Instant endTime = Instant.now();
-            record("end_time", endTime.toString());
-            record("duration_seconds",
-                   String.valueOf(Duration.between(startTime, endTime).getSeconds()));
+            // Create content with 4 external variables
+            List<String> lines = Arrays.asList(
+                "sip_call_id:" + sipCallId,
+                "ani:" + ani,
+                "dnis:" + dnis,
+                "client_id:" + clientId
+            );
 
             // Write to file
-            Path file = dir.resolve(callId + ".txt");
-            Files.write(file, entries, StandardCharsets.UTF_8);
+            Files.write(traceFile, lines, StandardCharsets.UTF_8);
 
-            log.info("Trace written successfully: {} ({} entries)", file, entries.size());
+            log.info("Trace written: {} (4 external variables)", traceFile);
 
         } catch (IOException e) {
-            log.error("Error writing trace for call_id={}: {}", callId, e.getMessage(), e);
+            log.error("Error writing trace for sip_call_id={}: {}", sipCallId, e.getMessage(), e);
         }
     }
 
     /**
-     * Returns the call ID for this trace.
+     * Returns the SIP Call-ID for this trace.
      */
     public String getCallId() {
-        return callId;
+        return sipCallId;
     }
 
-    /**
-     * Returns the number of entries recorded so far.
-     */
-    public int getEntryCount() {
-        return entries.size();
+    @Override
+    public void close() {
+        // No action needed - file already written in constructor
+        log.debug("CallTracer closed for sip_call_id={}", sipCallId);
     }
 }

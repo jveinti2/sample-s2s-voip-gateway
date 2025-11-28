@@ -103,20 +103,35 @@ public class NovaSonicVoipGateway extends RegisteringMultipleUAS {
     @Override
     protected UserAgentListener createCallHandler(SipMessage msg) {
         register();
+
+        // Extract real SIP Call-ID from message
+        String sipCallId = msg.getCallIdHeader().getCallId();
+
         return new UserAgentListenerAdapter() {
             @Override
             public void onUaIncomingCall(UserAgent ua, NameAddress callee, NameAddress caller,
                                          MediaDesc[] media_descs) {
                 LOG.info("Incoming call from: {} to: {}", caller.getAddress(), callee.getAddress());
 
-                // Create call tracer
-                String callId = UUID.randomUUID().toString();
+                // Extract external variables
                 String ani = extractPhoneNumber(caller);
                 String dnis = extractPhoneNumber(callee);
                 String clientId = System.getenv().getOrDefault("CLIENT_ID", "keralty");
 
-                CallTracer tracer = new CallTracer(callId, ani, dnis, clientId);
-                LOG.info("Created CallTracer for call_id={}, ani={}, dnis={}", callId, ani, dnis);
+                // Log external variables in console
+                LOG.info("\n" +
+                    "========================================\n" +
+                    "EXTERNAL_VARIABLES:\n" +
+                    "  sip_call_id: {}\n" +
+                    "  ani: {}\n" +
+                    "  dnis: {}\n" +
+                    "  client_id: {}\n" +
+                    "========================================",
+                    sipCallId, ani, dnis, clientId
+                );
+
+                // Create call tracer with external variables
+                CallTracer tracer = new CallTracer(sipCallId, ani, dnis, clientId);
 
                 // Create media agent with tracer
                 ua.accept(new MediaAgent(mediaConfig.getMediaDescs(), streamerFactory.withTracer(tracer)));

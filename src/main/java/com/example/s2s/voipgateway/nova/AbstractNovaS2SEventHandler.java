@@ -102,9 +102,6 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
     @Override
     public void onStart() {
         log.info("Session started, playing greeting.");
-        if (tracer != null) {
-            tracer.record("session", "started");
-        }
         String greetingFilename = System.getenv().getOrDefault("GREETING_FILENAME","hello-how.wav");
         try { playAudioFile(greetingFilename); }
         catch (FileNotFoundException e) {
@@ -114,10 +111,13 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
 
     @Override
     public void onError(Exception e) {
+        log.error("Stream error: {}", e.getMessage(), e);
         if (tracer != null) {
-            tracer.record("error", e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
-            tracer.record("status", "error");
-            tracer.flush();
+            try {
+                tracer.close();
+            } catch (Exception ex) {
+                log.error("Failed to close tracer", ex);
+            }
         }
         if (!playedErrorSound) {
             try {
@@ -133,8 +133,11 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
     public void onComplete() {
         log.info("Stream complete");
         if (tracer != null) {
-            tracer.record("status", "completed");
-            tracer.flush();
+            try {
+                tracer.close();
+            } catch (Exception e) {
+                log.error("Failed to close tracer", e);
+            }
         }
     }
 

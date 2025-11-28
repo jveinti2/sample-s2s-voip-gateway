@@ -45,11 +45,6 @@ public class EndCallEventHandler extends AbstractNovaS2SEventHandler {
         // Mark call as ending
         callEndRequested = true;
 
-        // Record in trace
-        if (tracer != null) {
-            tracer.record("call_action", "end_requested");
-        }
-
         // Return success to AI
         output.put("success", true);
         output.put("message", "Call termination initiated. Provide brief farewell.");
