@@ -10,3 +10,4 @@ cdk.context.json
 node_modules
 .env
 CLAUDE.md
+logs/

@@ -22,8 +22,10 @@ import org.mjsip.ua.streamer.StreamerFactory;
 import org.slf4j.LoggerFactory;
 import org.zoolu.net.SocketAddress;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Vector;
 
 
 /**
@@ -107,36 +109,100 @@ public class NovaSonicVoipGateway extends RegisteringMultipleUAS {
         // Extract real SIP Call-ID from message
         String sipCallId = msg.getCallIdHeader().getCallId();
 
+        // Extract ALL SIP headers dynamically
+        Map<String, String> sipHeaders = extractAllSipHeaders(msg);
+
+        // Log all headers for debugging
+        logSipHeadersDetailed(sipCallId, sipHeaders);
+
         return new UserAgentListenerAdapter() {
             @Override
             public void onUaIncomingCall(UserAgent ua, NameAddress callee, NameAddress caller,
                                          MediaDesc[] media_descs) {
                 LOG.info("Incoming call from: {} to: {}", caller.getAddress(), callee.getAddress());
 
-                // Extract external variables
-                String ani = extractPhoneNumber(caller);
-                String dnis = extractPhoneNumber(callee);
-                String clientId = System.getenv().getOrDefault("CLIENT_ID", "keralty");
+                // Add calculated variables to the map
+                sipHeaders.put("sip_call_id", sipCallId);
+                sipHeaders.put("ani", extractPhoneNumber(caller));
+                sipHeaders.put("dnis", extractPhoneNumber(callee));
+                sipHeaders.put("client_id", System.getenv().getOrDefault("CLIENT_ID", "keralty"));
 
-                // Log external variables in console
-                LOG.info("\n" +
-                    "========================================\n" +
-                    "EXTERNAL_VARIABLES:\n" +
-                    "  sip_call_id: {}\n" +
-                    "  ani: {}\n" +
-                    "  dnis: {}\n" +
-                    "  client_id: {}\n" +
-                    "========================================",
-                    sipCallId, ani, dnis, clientId
-                );
-
-                // Create call tracer with external variables
-                CallTracer tracer = new CallTracer(sipCallId, ani, dnis, clientId);
+                // Create call tracer with all variables
+                CallTracer tracer = new CallTracer(sipHeaders);
 
                 // Create media agent with tracer
                 ua.accept(new MediaAgent(mediaConfig.getMediaDescs(), streamerFactory.withTracer(tracer)));
             }
         };
+    }
+
+    /**
+     * Extracts ALL headers from SIP message dynamically.
+     * Captures custom headers sent by provider (e.g., X-Client-Name, X-Session-ID).
+     *
+     * @param msg SIP message
+     * @return Map with all headers (key: header name in lowercase, value: header value)
+     */
+    private Map<String, String> extractAllSipHeaders(SipMessage msg) {
+        Map<String, String> headers = new HashMap<>();
+
+        try {
+            // Get all headers from SIP message
+            Vector<?> allHeaders = msg.getHeaders();
+
+            for (Object headerObj : allHeaders) {
+                try {
+                    // mjSIP uses org.mjsip.sip.header.Header interface
+                    // Each header has getName() and getValue() methods
+                    String headerName = (String) headerObj.getClass().getMethod("getName").invoke(headerObj);
+                    String headerValue = (String) headerObj.getClass().getMethod("getValue").invoke(headerObj);
+
+                    if (headerName != null && headerValue != null) {
+                        String key = headerName.toLowerCase();
+
+                        // Handle duplicate headers (e.g., multiple Via headers)
+                        if (headers.containsKey(key)) {
+                            headers.put(key, headers.get(key) + "," + headerValue);
+                        } else {
+                            headers.put(key, headerValue);
+                        }
+                    }
+                } catch (Exception e) {
+                    LOG.debug("Could not extract header from object: {}", headerObj.getClass().getName());
+                }
+            }
+
+            LOG.debug("Extracted {} SIP headers from message", headers.size());
+
+        } catch (Exception e) {
+            LOG.error("Error extracting SIP headers: {}", e.getMessage(), e);
+        }
+
+        return headers;
+    }
+
+    /**
+     * Logs all SIP headers in a formatted block for debugging.
+     *
+     * @param sipCallId SIP Call-ID
+     * @param headers Map of headers
+     */
+    private void logSipHeadersDetailed(String sipCallId, Map<String, String> headers) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("\n========================================\n");
+        sb.append("SIP HEADERS RECEIVED (call_id: ").append(sipCallId).append(")\n");
+        sb.append("========================================\n");
+
+        // Sort alphabetically for easier reading
+        headers.keySet().stream().sorted().forEach(key -> {
+            sb.append(String.format("  %-25s: %s\n", key, headers.get(key)));
+        });
+
+        sb.append("========================================\n");
+        sb.append("Total headers: ").append(headers.size()).append("\n");
+        sb.append("========================================");
+
+        LOG.info(sb.toString());
     }
 
     /**

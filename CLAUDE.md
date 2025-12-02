@@ -151,6 +151,10 @@ Configuration priority: If `SIP_SERVER` is set → use environment variables, ot
 - `NOVA_TOP_P` - Top-p sampling parameter (default: 0.9)
 - `NOVA_TEMPERATURE` - Temperature for response generation (default: 0.7)
 
+**S3 Tracing Configuration**:
+- `S3_BUCKET_NAME` - S3 bucket for call traces (required for S3 persistence)
+- `S3_REGION` - AWS region for S3 bucket (default: us-east-1)
+
 **Debug**:
 - `DEBUG_AUDIO_OUTPUT` - Log audio output details (true|false, default: false)
 
