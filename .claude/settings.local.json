@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn dependency:tree:*)",
+      "WebSearch",
+      "WebFetch(domain:mjsip.org)",
+      "WebFetch(domain:www.mjsip.org)",
+      "WebFetch(domain:github.com)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

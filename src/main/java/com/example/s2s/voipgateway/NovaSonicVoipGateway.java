@@ -22,10 +22,13 @@ import org.mjsip.ua.streamer.StreamerFactory;
 import org.slf4j.LoggerFactory;
 import org.zoolu.net.SocketAddress;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.Vector;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 /**
@@ -178,7 +181,96 @@ public class NovaSonicVoipGateway extends RegisteringMultipleUAS {
             LOG.error("Error extracting SIP headers: {}", e.getMessage(), e);
         }
 
+        // Fallback parser for non-standard headers (UUI, custom X-headers)
+        extractUUIFromRawMessage(msg, headers);
+
         return headers;
+    }
+
+    /**
+     * Extracts User-to-User and other non-standard headers from raw SIP message.
+     * This fallback parser handles headers that mjSIP doesn't recognize (e.g., RFC 7433 UUI).
+     *
+     * @param msg SIP message
+     * @param headers Map to populate with found headers
+     */
+    private void extractUUIFromRawMessage(SipMessage msg, Map<String, String> headers) {
+        try {
+            byte[] rawBytes = msg.getBytes();
+            String rawMessage = new String(rawBytes, StandardCharsets.UTF_8);
+
+            // Log full raw message for debugging (remove after verification)
+            LOG.debug("Full raw SIP message:\n{}", rawMessage);
+
+            // Parse for User-to-User header (case-insensitive, RFC 7433)
+            // Format: User-to-User: <value>;encoding=<enc>;purpose=<purpose>
+            Pattern uuiPattern = Pattern.compile("(?im)^User-to-User\\s*:\\s*([^\\r\\n]+)");
+            Matcher uuiMatcher = uuiPattern.matcher(rawMessage);
+
+            if (uuiMatcher.find()) {
+                String uuiValue = uuiMatcher.group(1).trim();
+                headers.put("user-to-user", uuiValue);
+                LOG.info("Captured User-to-User header from raw message: {}", uuiValue);
+
+                // Parse UUI data into individual key-value pairs
+                // Format: Task.callId=abc-123;encoding=hex;purpose=isdn-uui
+                parseUUIDataToHeaders(uuiValue, headers);
+            }
+
+            // Also scan for any X-* custom headers that mjSIP might have missed
+            Pattern xHeaderPattern = Pattern.compile("(?im)^(X-[^:]+)\\s*:\\s*([^\\r\\n]+)");
+            Matcher xHeaderMatcher = xHeaderPattern.matcher(rawMessage);
+
+            while (xHeaderMatcher.find()) {
+                String headerName = xHeaderMatcher.group(1).trim().toLowerCase();
+                String headerValue = xHeaderMatcher.group(2).trim();
+
+                // Only add if not already captured by standard extraction
+                if (!headers.containsKey(headerName)) {
+                    headers.put(headerName, headerValue);
+                    LOG.debug("Captured custom header from raw message: {} = {}", headerName, headerValue);
+                }
+            }
+
+        } catch (Exception e) {
+            LOG.warn("Error extracting headers from raw SIP message: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Parses UUI data string into individual key-value pairs and adds them to headers map.
+     * Handles formats like: Task.callId=abc-123;encoding=hex;purpose=isdn-uui
+     * Creates individual entries: uui_task_callid, uui_encoding, uui_purpose, etc.
+     *
+     * @param uuiData The full UUI data string
+     * @param headers Map to populate with parsed key-value pairs
+     */
+    private void parseUUIDataToHeaders(String uuiData, Map<String, String> headers) {
+        try {
+            // Split by semicolon to get individual parameters
+            String[] parts = uuiData.split(";");
+
+            for (String part : parts) {
+                part = part.trim();
+                if (part.isEmpty()) continue;
+
+                // Split by = to get key-value pairs
+                int equalsIndex = part.indexOf('=');
+                if (equalsIndex > 0) {
+                    String key = part.substring(0, equalsIndex).trim();
+                    String value = part.substring(equalsIndex + 1).trim();
+
+                    // Convert key to lowercase and replace dots with underscores
+                    // Task.callId -> uui_task_callid
+                    String normalizedKey = "uui_" + key.toLowerCase().replace('.', '_');
+
+                    headers.put(normalizedKey, value);
+                    LOG.info("Parsed UUI parameter: {} = {}", normalizedKey, value);
+                }
+            }
+        } catch (Exception e) {
+            LOG.warn("Error parsing UUI data into key-value pairs: {}", e.getMessage());
+        }
     }
 
     /**
