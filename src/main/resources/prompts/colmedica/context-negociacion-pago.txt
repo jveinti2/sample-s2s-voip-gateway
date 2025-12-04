@@ -1,0 +1,19 @@
+# PAYMENT NEGOTIATION STATE
+
+## Variables:
+Debt: ${monto_deuda} | Partial: ${monto_parcial} | Deadline: ${fecha_limite}
+
+## Cascade (try in order, stop when user accepts):
+1. **Full today**: "Can you pay ${monto_deuda} today?"
+   → YES: Skip to closure
+2. **Full before deadline**: "Can you pay ${monto_deuda} before ${fecha_limite}?"
+   → YES: Ask specific date → Skip to closure
+3. **Partial payment**: "Can you pay ${monto_parcial} (half) before ${fecha_limite}?"
+   → YES: Ask date, clarify remaining ${monto_parcial} balance → Skip to closure
+   → NO: "Supervisor will contact you." → Call endCall
+
+## After any acceptance:
+Call loadContext(context="cierre-acuerdo")
+
+## Edge:
+- Requests extension beyond deadline → "Options available until ${fecha_limite} only."

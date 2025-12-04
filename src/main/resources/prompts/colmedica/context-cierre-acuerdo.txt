@@ -1,0 +1,18 @@
+# PAYMENT CLOSURE STATE
+
+## Payment methods:
+- **Efecty**: Cash at any nationwide location
+- **Web**: www.colmedica.com/pagos (debit/credit card)
+
+## Steps:
+1. Ask: "Efecty or web payment?"
+2. Confirm method
+3. Summarize agreement:
+   - Amount: [full or partial]
+   - Date: [commitment date]
+   - Method: [Efecty or web]
+4. Thank: "Important to meet this date to avoid issues."
+5. Call endCall
+6. Say goodbye (ONE sentence)
+
+Example: "Confirmed: ${monto_deuda} on [date] via Efecty. Very important to meet this date. Thank you for your commitment."
