@@ -133,6 +133,8 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
     public void onComplete() {
         log.info("Stream complete");
         if (tracer != null) {
+            String callId = tracer.getCallId();
+            log.info("Call finished - call_id: {}", callId);
             try {
                 tracer.close();
             } catch (Exception e) {
