@@ -1,5 +1,6 @@
 package com.example.s2s.voipgateway.nova;
 
+import com.example.s2s.voipgateway.notification.SqsNotifier;
 import com.example.s2s.voipgateway.nova.event.*;
 import com.example.s2s.voipgateway.nova.io.QueuedUlawInputStream;
 import com.example.s2s.voipgateway.nova.observer.InteractObserver;
@@ -24,6 +25,7 @@ import java.util.UUID;
  */
 public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler {
     private static final Logger log = LoggerFactory.getLogger(AbstractNovaS2SEventHandler.class);
+    private static final SqsNotifier sqsNotifier = new SqsNotifier();
     private static final Base64.Decoder decoder = Base64.getDecoder();
     private static final String ERROR_AUDIO_FILE = "error.wav";
     private final QueuedUlawInputStream audioStream = new QueuedUlawInputStream();
@@ -114,6 +116,11 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
         log.error("Stream error: {}", e.getMessage(), e);
         if (tracer != null) {
             try {
+                sqsNotifier.sendCallCompletedMessage(tracer);
+            } catch (Exception ex) {
+                log.error("Failed to send SQS notification on error", ex);
+            }
+            try {
                 tracer.close();
             } catch (Exception ex) {
                 log.error("Failed to close tracer", ex);
@@ -135,6 +142,11 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
         if (tracer != null) {
             String callId = tracer.getCallId();
             log.info("Call finished - call_id: {}", callId);
+            try {
+                sqsNotifier.sendCallCompletedMessage(tracer);
+            } catch (Exception e) {
+                log.error("Failed to send SQS notification", e);
+            }
             try {
                 tracer.close();
             } catch (Exception e) {

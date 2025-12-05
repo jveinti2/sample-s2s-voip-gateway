@@ -74,6 +74,16 @@ public class CallTracer implements AutoCloseable {
     }
 
     /**
+     * Gets a variable value from the trace.
+     *
+     * @param key Variable key
+     * @return Variable value, or null if not found
+     */
+    public String getVariable(String key) {
+        return traceVariables.get(key);
+    }
+
+    /**
      * Escribe el trace a S3 cuando la llamada finaliza.
      * Llamado desde AbstractNovaS2SEventHandler.onComplete() o onError().
      */

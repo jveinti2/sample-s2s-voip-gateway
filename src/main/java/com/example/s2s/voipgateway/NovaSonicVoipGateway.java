@@ -115,8 +115,13 @@ public class NovaSonicVoipGateway extends RegisteringMultipleUAS {
         // Extract ALL SIP headers dynamically
         Map<String, String> sipHeaders = extractAllSipHeaders(msg);
 
-        // Log all headers for debugging
-        logSipHeadersDetailed(sipCallId, sipHeaders);
+        // Log only external variables (cleaner view)
+        logExternalVariables(sipCallId, sipHeaders);
+
+        // Optional: Keep full SIP headers in DEBUG level
+        if (LOG.isDebugEnabled()) {
+            logSipHeadersDetailed(sipCallId, sipHeaders);
+        }
 
         return new UserAgentListenerAdapter() {
             @Override
@@ -247,21 +252,43 @@ public class NovaSonicVoipGateway extends RegisteringMultipleUAS {
      */
     private void parseUUIDataToHeaders(String uuiData, Map<String, String> headers) {
         try {
-            // Split by semicolon to get individual parameters
-            String[] parts = uuiData.split(";");
+            String dataToParse = uuiData;
+
+            // Check if it's hex-encoded (Genesys Cloud format)
+            // Pattern: starts with hex digits followed by ;encoding=hex
+            if (uuiData.matches("^[0-9a-fA-F]+;encoding=hex.*")) {
+                // Extract hex part (everything before first semicolon)
+                int semicolonIndex = uuiData.indexOf(';');
+                String hexPart = uuiData.substring(0, semicolonIndex);
+
+                // Decode hex to ASCII
+                String decoded = decodeHexToAscii(hexPart);
+                if (decoded != null) {
+                    LOG.info("Decoded UUI hex data: {}", decoded);
+                    dataToParse = decoded;
+                }
+            }
+
+            // Parse key-value pairs
+            // Genesys format: Key:Value|Key:Value|
+            // Generic format: Key=Value;Key=Value;
+            String[] parts = dataToParse.split("[|;]");
 
             for (String part : parts) {
                 part = part.trim();
                 if (part.isEmpty()) continue;
 
-                // Split by = to get key-value pairs
-                int equalsIndex = part.indexOf('=');
-                if (equalsIndex > 0) {
-                    String key = part.substring(0, equalsIndex).trim();
-                    String value = part.substring(equalsIndex + 1).trim();
+                // Try colon separator first (Genesys), then equals
+                int separatorIndex = part.indexOf(':');
+                if (separatorIndex <= 0) {
+                    separatorIndex = part.indexOf('=');
+                }
 
-                    // Convert key to lowercase and replace dots with underscores
-                    // Task.callId -> uui_task_callid
+                if (separatorIndex > 0) {
+                    String key = part.substring(0, separatorIndex).trim();
+                    String value = part.substring(separatorIndex + 1).trim();
+
+                    // Normalize key: ConversationId -> uui_conversationid
                     String normalizedKey = "uui_" + key.toLowerCase().replace('.', '_');
 
                     headers.put(normalizedKey, value);
@@ -270,6 +297,35 @@ public class NovaSonicVoipGateway extends RegisteringMultipleUAS {
             }
         } catch (Exception e) {
             LOG.warn("Error parsing UUI data into key-value pairs: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Decodes hex string to ASCII text.
+     * Removes the protocol discriminator prefix (first 2 chars) if present.
+     *
+     * @param hexString Hex string to decode
+     * @return Decoded ASCII string
+     */
+    private String decodeHexToAscii(String hexString) {
+        try {
+            // Remove protocol discriminator (first octet = first 2 hex chars)
+            if (hexString.length() >= 2 && hexString.startsWith("00")) {
+                hexString = hexString.substring(2);
+            }
+
+            // Convert hex to bytes
+            int len = hexString.length();
+            byte[] data = new byte[len / 2];
+            for (int i = 0; i < len; i += 2) {
+                data[i / 2] = (byte) ((Character.digit(hexString.charAt(i), 16) << 4)
+                                    + Character.digit(hexString.charAt(i+1), 16));
+            }
+
+            return new String(data, StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            LOG.warn("Error decoding hex string: {}", e.getMessage());
+            return null;
         }
     }
 
@@ -292,6 +348,38 @@ public class NovaSonicVoipGateway extends RegisteringMultipleUAS {
 
         sb.append("========================================\n");
         sb.append("Total headers: ").append(headers.size()).append("\n");
+        sb.append("========================================");
+
+        LOG.info(sb.toString());
+    }
+
+    /**
+     * Logs only external variables (from UUI data) in a clean format.
+     *
+     * @param sipCallId SIP Call-ID
+     * @param headers Map of all headers
+     */
+    private void logExternalVariables(String sipCallId, Map<String, String> headers) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("\n========================================\n");
+        sb.append("EXTERNAL VARIABLES (call_id: ").append(sipCallId).append(")\n");
+        sb.append("========================================\n");
+
+        // Filter only UUI-parsed variables
+        boolean hasVariables = false;
+        for (String key : headers.keySet().stream().sorted().collect(java.util.stream.Collectors.toList())) {
+            if (key.startsWith("uui_")) {
+                // Remove uui_ prefix for display
+                String displayKey = key.substring(4);
+                sb.append(String.format("  %-25s: %s\n", displayKey, headers.get(key)));
+                hasVariables = true;
+            }
+        }
+
+        if (!hasVariables) {
+            sb.append("  (No external variables found)\n");
+        }
+
         sb.append("========================================");
 
         LOG.info(sb.toString());
