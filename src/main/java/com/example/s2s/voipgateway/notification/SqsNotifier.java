@@ -24,27 +24,42 @@ public class SqsNotifier {
     public SqsNotifier() {
         String sqsRegion = System.getenv().getOrDefault("SQS_REGION", "us-east-1");
         String enabledStr = System.getenv().getOrDefault("SQS_ENABLED", "true");
-        this.enabled = "true".equalsIgnoreCase(enabledStr);
+        boolean requestedEnabled = "true".equalsIgnoreCase(enabledStr);
 
-        if (enabled) {
+        SqsClient tempClient = null;
+        String tempQueueUrl = null;
+        boolean actuallyEnabled = false;
+
+        if (requestedEnabled) {
             try {
-                this.sqsClient = SqsClient.builder()
+                tempClient = SqsClient.builder()
                         .region(Region.of(sqsRegion))
                         .build();
 
-                this.queueUrl = sqsClient.getQueueUrl(builder -> builder.queueName(QUEUE_NAME))
+                tempQueueUrl = tempClient.getQueueUrl(builder -> builder.queueName(QUEUE_NAME))
                         .queueUrl();
 
-                LOG.info("SqsNotifier initialized. Queue URL: {}", queueUrl);
+                actuallyEnabled = true;
+                LOG.info("SqsNotifier initialized. Queue URL: {}", tempQueueUrl);
             } catch (Exception e) {
-                LOG.error("Failed to initialize SqsNotifier", e);
-                throw new RuntimeException("SQS initialization failed", e);
+                LOG.warn("Failed to initialize SqsNotifier (queue may not exist), SQS notifications will be disabled: {}", e.getMessage());
+                if (tempClient != null) {
+                    try {
+                        tempClient.close();
+                    } catch (Exception ex) {
+                        LOG.debug("Error closing SQS client during cleanup", ex);
+                    }
+                }
+                tempClient = null;
+                tempQueueUrl = null;
             }
         } else {
-            this.sqsClient = null;
-            this.queueUrl = null;
             LOG.info("SqsNotifier disabled via SQS_ENABLED=false");
         }
+
+        this.sqsClient = tempClient;
+        this.queueUrl = tempQueueUrl;
+        this.enabled = actuallyEnabled;
     }
 
     public void sendCallCompletedMessage(CallTracer tracer) {
