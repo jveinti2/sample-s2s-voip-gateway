@@ -68,7 +68,9 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
 
     @Override
     public void handleTextOutput(JsonNode node) {
-
+        String content = node.get("content").asText();
+        String role = node.get("role").asText();
+        log.info("Nova says ({}): {}", role, content);
     }
 
     @Override
