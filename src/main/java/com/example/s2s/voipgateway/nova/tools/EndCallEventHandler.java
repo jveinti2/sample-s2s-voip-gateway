@@ -45,9 +45,10 @@ public class EndCallEventHandler extends AbstractNovaS2SEventHandler {
         // Mark call as ending
         callEndRequested = true;
 
-        // Return acknowledgment (simple data, not instructions)
-        output.put("status", "acknowledged");
-        output.put("farewell_prompted", true);
+        // Return success to AI
+        output.put("success", true);
+        output.put("message", "Call termination initiated. Provide brief farewell.");
+        output.put("instruction", "Say goodbye in ONE sentence, then conversation will end.");
 
         log.info("endCall tool completed successfully");
     }

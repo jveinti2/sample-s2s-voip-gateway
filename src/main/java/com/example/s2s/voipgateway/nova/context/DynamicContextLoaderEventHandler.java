@@ -186,7 +186,7 @@ public class DynamicContextLoaderEventHandler extends AbstractNovaS2SEventHandle
                         .name("loadContext")
                         .description("Load detailed conversational instructions for a specific state or flow. " +
                                    "Available contexts: " + String.join(", ", AVAILABLE_CONTEXTS) +
-                                   ". You MUST call this tool when transitioning to a new conversational state " +
+                                   ". You MUST call this tool ONLY after the user has explicitly stated their intent for a specific flow " +
                                    "to receive the detailed instructions for that state.")
                         .inputSchema(createContextSchema())
                         .build())
