@@ -12,7 +12,9 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.File;
 import java.net.URL;
 import java.util.*;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -154,6 +156,8 @@ public class DynamicContextLoaderEventHandler extends AbstractNovaS2SEventHandle
 
             if (CONTEXT_FRAGMENTS.containsKey(contextName)) {
                 String instructions = CONTEXT_FRAGMENTS.get(contextName);
+                // Replace variable placeholders with actual values
+                instructions = replaceVariables(instructions);
                 output.put("contextLoaded", true);
                 output.put("contextType", contextName);
                 output.put("instructions", instructions);
@@ -239,5 +243,30 @@ public class DynamicContextLoaderEventHandler extends AbstractNovaS2SEventHandle
      */
     public static String getClientId() {
         return CLIENT_ID;
+    }
+
+    /**
+     * Replace variable placeholders with actual values.
+     * For POC, uses hardcoded test values.
+     * In production, these would come from database/API/CallTracer.
+     */
+    private String replaceVariables(String content) {
+        // Test values for POC
+        Map<String, String> variables = new HashMap<>();
+        variables.put("monto_deuda", "trescientos cincuenta mil pesos");
+        variables.put("monto_parcial", "ciento setenta y cinco mil pesos");
+        variables.put("fecha_limite", "quince de diciembre de dos mil veinticinco");
+        variables.put("nombre_titular", "Jonathan Becerra");
+
+        // Replace all variables
+        for (Map.Entry<String, String> entry : variables.entrySet()) {
+            String placeholder = "${" + entry.getKey() + "}";
+            content = content.replace(placeholder, entry.getValue());
+        }
+
+        log.info("Variables replaced in context. Sample: monto_deuda={}",
+            variables.get("monto_deuda"));
+
+        return content;
     }
 }
