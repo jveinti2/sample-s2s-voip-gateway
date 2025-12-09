@@ -279,9 +279,9 @@ public class DynamicContextLoaderEventHandler extends AbstractNovaS2SEventHandle
 
         int replacementCount = 0;
 
-        // Replace variables with two naming strategies:
-        // 1. Direct match: ${sip_call_id} → value from key "sip_call_id"
-        // 2. UUI match: ${monto_deuda} → value from key "uui_monto_deuda"
+        // Replace variables with multiple naming strategies:
+        // 1. Direct match: ${sip_call_id} or [sip_call_id] → value from key "sip_call_id"
+        // 2. UUI match: ${monto_deuda} or [monto_deuda] → value from key "uui_monto_deuda"
 
         for (Map.Entry<String, String> entry : allVariables.entrySet()) {
             String key = entry.getKey();
@@ -291,23 +291,38 @@ public class DynamicContextLoaderEventHandler extends AbstractNovaS2SEventHandle
                 continue;
             }
 
-            // Strategy 1: Direct replacement ${key}
-            String directPlaceholder = "${" + key + "}";
-            if (content.contains(directPlaceholder)) {
-                content = content.replace(directPlaceholder, value);
-                log.debug("Replaced {} with '{}'", directPlaceholder, value);
+            // Strategy 1: Direct replacement with ${key}
+            String dollarPlaceholder = "${" + key + "}";
+            if (content.contains(dollarPlaceholder)) {
+                content = content.replace(dollarPlaceholder, value);
+                log.debug("Replaced {} with '{}'", dollarPlaceholder, value);
                 replacementCount++;
             }
 
-            // Strategy 2: If key starts with "uui_", also try without prefix
-            // This allows prompts to use ${monto_deuda} instead of ${uui_monto_deuda}
+            // Strategy 2: Direct replacement with [key]
+            String bracketPlaceholder = "[" + key + "]";
+            if (content.contains(bracketPlaceholder)) {
+                content = content.replace(bracketPlaceholder, value);
+                log.debug("Replaced {} with '{}'", bracketPlaceholder, value);
+                replacementCount++;
+            }
+
+            // Strategy 3: If key starts with "uui_", also try without prefix for ${monto_deuda}
             if (key.startsWith("uui_")) {
                 String keyWithoutPrefix = key.substring(4); // Remove "uui_" prefix
-                String prefixlessPlaceholder = "${" + keyWithoutPrefix + "}";
 
-                if (content.contains(prefixlessPlaceholder)) {
-                    content = content.replace(prefixlessPlaceholder, value);
-                    log.debug("Replaced {} with '{}' (from key: {})", prefixlessPlaceholder, value, key);
+                String dollarPrefixlessPlaceholder = "${" + keyWithoutPrefix + "}";
+                if (content.contains(dollarPrefixlessPlaceholder)) {
+                    content = content.replace(dollarPrefixlessPlaceholder, value);
+                    log.debug("Replaced {} with '{}' (from key: {})", dollarPrefixlessPlaceholder, value, key);
+                    replacementCount++;
+                }
+
+                // Strategy 4: If key starts with "uui_", also try without prefix for [monto_deuda]
+                String bracketPrefixlessPlaceholder = "[" + keyWithoutPrefix + "]";
+                if (content.contains(bracketPrefixlessPlaceholder)) {
+                    content = content.replace(bracketPrefixlessPlaceholder, value);
+                    log.debug("Replaced {} with '{}' (from key: {})", bracketPrefixlessPlaceholder, value, key);
                     replacementCount++;
                 }
             }
