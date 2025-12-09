@@ -5,6 +5,7 @@ import com.example.s2s.voipgateway.constants.SonicAudioConfig;
 import com.example.s2s.voipgateway.constants.SonicAudioTypes;
 import com.example.s2s.voipgateway.nova.event.*;
 import com.example.s2s.voipgateway.nova.context.HybridEventHandler;
+import com.example.s2s.voipgateway.nova.context.VariableReplacer;
 import com.example.s2s.voipgateway.NovaMediaConfig;
 import com.example.s2s.voipgateway.tracing.CallTracer;
 import com.example.s2s.voipgateway.NovaSonicAudioInput;
@@ -76,12 +77,16 @@ public class NovaStreamerFactory implements StreamerFactory {
         NovaS2SBedrockInteractClient novaClient = new NovaS2SBedrockInteractClient(client, "amazon.nova-sonic-v1:0");
         NovaS2SEventHandler eventHandler = new HybridEventHandler(tracer);
 
-        log.info("Using system prompt: {}", mediaConfig.getNovaPrompt());
+        // Replace variables in base prompt before sending to Nova Sonic
+        String basePrompt = mediaConfig.getNovaPrompt();
+        String promptWithVariables = VariableReplacer.replaceVariables(basePrompt, tracer);
+
+        log.info("Using system prompt ({} chars)", promptWithVariables.length());
 
         InteractObserver<NovaSonicEvent> inputObserver = novaClient.interactMultimodal(
                 createSessionStartEvent(),
                 createPromptStartEvent(promptName, eventHandler),
-                createSystemPrompt(promptName, mediaConfig.getNovaPrompt()),
+                createSystemPrompt(promptName, promptWithVariables),
                 eventHandler);
 
         eventHandler.setOutbound(inputObserver);
