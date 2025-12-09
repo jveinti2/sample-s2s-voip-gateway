@@ -1,18 +1,8 @@
-# PAYMENT CLOSURE STATE
-
-## Payment methods:
-- **Efecty**: Cash at any nationwide location
-- **Web**: www.colmedica.com/pagos (debit/credit card)
+# PAYMENT CLOSING STATUS
 
 ## Steps:
-1. Ask: "Efecty or web payment?"
-2. Confirm method
-3. Summarize agreement:
-   - Amount: [full or partial]
-   - Date: [commitment date]
-   - Method: [Efecty or web]
-4. Thank: "Important to meet this date to avoid issues."
-5. Call endCall
-6. Say goodbye (ONE sentence)
+1. Agreement Summary: Briefly reiterate what was agreed upon during the call.
 
-Example: "Confirmed: ${monto_deuda} on [date] via Efecty. Very important to meet this date. Thank you for your commitment."
+2. Reminder Information: Inform them that we will send a message to their WhatsApp with all the details and payment methods. They can also find them at www.colmedica.com, in the Payment Methods section.
+
+3. Acknowledgement and Closing: Thank you for your confirmation. We appreciate your responsibility and trust. Have a great day, and remember that at Colmédica, we are here to serve you.
