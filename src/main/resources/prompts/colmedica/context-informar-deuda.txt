@@ -29,5 +29,4 @@ Debt: ${monto_deuda} | Deadline: ${fecha_limite}
 
 DO NOT call endCall unless user explicitly requests it, disputes debt, or requests transfer.
 
-Read amounts as words: "trescientos cincuenta mil pesos"
-Read dates as: "diez de diciembre"
+Speak amounts and dates naturally as provided in the variables.

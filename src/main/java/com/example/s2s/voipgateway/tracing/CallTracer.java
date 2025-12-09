@@ -84,6 +84,16 @@ public class CallTracer implements AutoCloseable {
     }
 
     /**
+     * Gets all trace variables.
+     * Returns a copy to prevent external modification.
+     *
+     * @return Map with all variables (SIP headers + UUI variables + metadata)
+     */
+    public Map<String, String> getAllVariables() {
+        return new HashMap<>(traceVariables);
+    }
+
+    /**
      * Escribe el trace a S3 cuando la llamada finaliza.
      * Llamado desde AbstractNovaS2SEventHandler.onComplete() o onError().
      */

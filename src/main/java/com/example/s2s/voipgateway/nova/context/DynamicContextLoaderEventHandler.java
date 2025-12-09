@@ -246,26 +246,65 @@ public class DynamicContextLoaderEventHandler extends AbstractNovaS2SEventHandle
     }
 
     /**
-     * Replace variable placeholders with actual values.
-     * For POC, uses hardcoded test values.
-     * In production, these would come from database/API/CallTracer.
+     * Replace variable placeholders with actual values from CallTracer.
+     * Extracts variables from SIP/UUI headers (stored in CallTracer) and
+     * replaces ${variable_name} placeholders in context content.
+     *
+     * @param content Context content with ${placeholder} variables
+     * @return Content with placeholders replaced by real values
      */
     private String replaceVariables(String content) {
-        // Test values for POC
-        Map<String, String> variables = new HashMap<>();
-        variables.put("monto_deuda", "trescientos cincuenta mil pesos");
-        variables.put("monto_parcial", "ciento setenta y cinco mil pesos");
-        variables.put("fecha_limite", "quince de diciembre de dos mil veinticinco");
-        variables.put("nombre_titular", "Jonathan Becerra");
-
-        // Replace all variables
-        for (Map.Entry<String, String> entry : variables.entrySet()) {
-            String placeholder = "${" + entry.getKey() + "}";
-            content = content.replace(placeholder, entry.getValue());
+        if (tracer == null) {
+            log.warn("CallTracer is null - cannot replace variables with real values");
+            return content;
         }
 
-        log.info("Variables replaced in context. Sample: monto_deuda={}",
-            variables.get("monto_deuda"));
+        // Extract ALL variables from CallTracer dynamically
+        Map<String, String> allVariables = tracer.getAllVariables();
+
+        if (allVariables.isEmpty()) {
+            log.warn("No variables available in CallTracer for replacement");
+            return content;
+        }
+
+        log.info("Found {} variables in CallTracer for potential replacement", allVariables.size());
+        int replacementCount = 0;
+
+        // Replace variables with two naming strategies:
+        // 1. Direct match: ${sip_call_id} → value from key "sip_call_id"
+        // 2. UUI match: ${monto_deuda} → value from key "uui_monto_deuda"
+
+        for (Map.Entry<String, String> entry : allVariables.entrySet()) {
+            String key = entry.getKey();
+            String value = entry.getValue();
+
+            if (value == null || value.isEmpty()) {
+                continue;
+            }
+
+            // Strategy 1: Direct replacement ${key}
+            String directPlaceholder = "${" + key + "}";
+            if (content.contains(directPlaceholder)) {
+                content = content.replace(directPlaceholder, value);
+                log.debug("Replaced {} with '{}'", directPlaceholder, value);
+                replacementCount++;
+            }
+
+            // Strategy 2: If key starts with "uui_", also try without prefix
+            // This allows prompts to use ${monto_deuda} instead of ${uui_monto_deuda}
+            if (key.startsWith("uui_")) {
+                String keyWithoutPrefix = key.substring(4); // Remove "uui_" prefix
+                String prefixlessPlaceholder = "${" + keyWithoutPrefix + "}";
+
+                if (content.contains(prefixlessPlaceholder)) {
+                    content = content.replace(prefixlessPlaceholder, value);
+                    log.debug("Replaced {} with '{}' (from key: {})", prefixlessPlaceholder, value, key);
+                    replacementCount++;
+                }
+            }
+        }
+
+        log.info("Variable replacement complete: {} replacements made", replacementCount);
 
         return content;
     }

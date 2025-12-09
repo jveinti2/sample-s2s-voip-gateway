@@ -7,7 +7,8 @@
       "WebFetch(domain:www.mjsip.org)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:help.mypurecloud.com)",
-      "WebFetch(domain:docs.parloa.com)"
+      "WebFetch(domain:docs.parloa.com)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []
