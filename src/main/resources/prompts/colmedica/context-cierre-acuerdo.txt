@@ -14,9 +14,9 @@
 Briefly reiterate what was agreed upon during the call.
 
 **Examples based on agreement type:**
--   Full payment today: "Perfecto, entonces confirmamos el pago de **[total_deuda]** para el día de hoy."
--   Full payment in 2 days: "Excelente, quedamos entonces con el pago de **[total_deuda]** para el 12 de diciembre."
--   Full payment in 4-5 days: "Muy bien, agendamos el pago de **[total_deuda]** para el [fecha acordada]."
+-   Full payment today: "Perfecto, entonces confirmamos el pago de **[monto_deuda]** para el día de hoy."
+-   Full payment in 2 days: "Excelente, quedamos entonces con el pago de **[monto_deuda]** para el 12 de diciembre."
+-   Full payment in 4-5 days: "Muy bien, agendamos el pago de **[monto_deuda]** para el [fecha acordada]."
 -   Partial payment: "Perfecto, confirmamos el pago de **[monto_parcial]** para reactivar su servicio. Recuerde que la reactivación puede tomar de 1 a 3 días hábiles."
 
 ---
