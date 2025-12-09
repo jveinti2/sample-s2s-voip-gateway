@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Console appender with clean format -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} -- %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- SILENCE AWS SDK verbose logging -->
+    <logger name="software.amazon.awssdk" level="WARN"/>
+    <logger name="software.amazon.awssdk.request" level="WARN"/>
+    <logger name="software.amazon.awssdk.core" level="WARN"/>
+    <logger name="software.amazon.awssdk.thirdparty" level="WARN"/>
+
+    <!-- SILENCE Netty (HTTP client internals) -->
+    <logger name="io.netty" level="WARN"/>
+    <logger name="software.amazon.awssdk.thirdparty.io.netty" level="WARN"/>
+
+    <!-- SILENCE mjSIP verbose logs -->
+    <logger name="org.mjsip" level="INFO"/>
+    <logger name="org.zoolu" level="INFO"/>
+
+    <!-- Application loggers - INFO by default -->
+    <logger name="com.example.s2s.voipgateway" level="INFO"/>
+
+    <!-- Enable DEBUG for specific classes when needed -->
+    <!-- Uncomment to debug variable replacement: -->
+    <!-- <logger name="com.example.s2s.voipgateway.nova.context.DynamicContextLoaderEventHandler" level="DEBUG"/> -->
+
+    <!-- Root logger -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>

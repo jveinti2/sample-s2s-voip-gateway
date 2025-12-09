@@ -268,6 +268,15 @@ public class DynamicContextLoaderEventHandler extends AbstractNovaS2SEventHandle
         }
 
         log.info("Found {} variables in CallTracer for potential replacement", allVariables.size());
+
+        // DEBUG: Log variables before replacement
+        if (log.isDebugEnabled()) {
+            log.debug("=== VARIABLES BEFORE REPLACEMENT ===");
+            allVariables.forEach((k, v) -> log.debug("  {} = '{}'", k, v));
+            log.debug("=== CONTENT BEFORE REPLACEMENT (first 500 chars) ===");
+            log.debug("{}", content.substring(0, Math.min(500, content.length())));
+        }
+
         int replacementCount = 0;
 
         // Replace variables with two naming strategies:
@@ -305,6 +314,13 @@ public class DynamicContextLoaderEventHandler extends AbstractNovaS2SEventHandle
         }
 
         log.info("Variable replacement complete: {} replacements made", replacementCount);
+
+        // DEBUG: Log content after replacement
+        if (log.isDebugEnabled()) {
+            log.debug("=== CONTENT AFTER REPLACEMENT (first 500 chars) ===");
+            log.debug("{}", content.substring(0, Math.min(500, content.length())));
+            log.debug("=== FULL CONTENT LENGTH: {} chars ===", content.length());
+        }
 
         return content;
     }
