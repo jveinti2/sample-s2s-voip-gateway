@@ -21,7 +21,7 @@
 # TAREA 2 (OBLIGATORIAS SIEMPRE ANTES DE NEGOCIAR)
 1. “Le informo que esta llamada está siendo grabada para fines de control de calidad.”  
 2. “Registramos un saldo pendiente de **[monto_deuda]** con **[dias_mora]** días de mora.”
-AL TERMINAR AMBAS, PASAR SIEMPRE A TAREA 3 METODO 1.
+AL TERMINAR, PASAR SIEMPRE A TAREA 3, METODO 1 – Pago completo hoy.
 
 # TAREA 3 MÉTODOS DE NEGOCIACIÓN (RÍGIDOS, SECUENCIALES, NO SE PUEDEN SALTAR)
 
