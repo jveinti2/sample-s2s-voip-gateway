@@ -2,6 +2,7 @@ package com.example.s2s.voipgateway.nova.tools;
 
 import com.example.s2s.voipgateway.nova.AbstractNovaS2SEventHandler;
 import com.example.s2s.voipgateway.nova.event.PromptStartEvent;
+import com.example.s2s.voipgateway.tracing.CallTracer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,8 +20,16 @@ public class DateTimeNovaS2SEventHandler extends AbstractNovaS2SEventHandler {
     private static final Logger log = LoggerFactory.getLogger(DateTimeNovaS2SEventHandler.class);
     private static final String TIMEZONE = System.getenv().getOrDefault("TZ", "America/Los_Angeles");
 
+    public DateTimeNovaS2SEventHandler() {
+        super();
+    }
+
+    public DateTimeNovaS2SEventHandler(CallTracer tracer) {
+        super(tracer);
+    }
+
     @Override
-    protected void handleToolInvocation(String toolUseId, String toolName, String content, Map<String, Object> output) {
+    public void handleToolInvocation(String toolUseId, String toolName, String content, Map<String, Object> output) {
         if (toolName == null) {
             log.warn("Received null toolName");
         } else {

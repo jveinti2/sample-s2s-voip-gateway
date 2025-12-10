@@ -100,9 +100,9 @@ public class NovaS2SResponseHandler implements InvokeModelWithBidirectionalStrea
                 } else if (eventNode.has("contentEnd")) {
                     if (TYPE_TOOL.equals(eventNode.get("contentEnd").get("type").asText())) {
                         handler.handleToolUse(eventNode, toolUseId, toolName, toolUseContent);
+                    } else {
+                        handler.handleContentEnd(eventNode.get("contentEnd"));
                     }
-                } else if (eventNode.has("contentEnd")) {
-                    handler.handleContentEnd(eventNode.get("contentEnd"));
                 } else if (eventNode.has("completionEnd")) {
                     handler.handleCompletionEnd(eventNode.get("completionEnd"));
                 } else {

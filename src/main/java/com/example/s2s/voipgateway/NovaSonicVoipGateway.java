@@ -1,6 +1,7 @@
 package com.example.s2s.voipgateway;
 
 import com.example.s2s.voipgateway.nova.NovaStreamerFactory;
+import com.example.s2s.voipgateway.tracing.CallTracer;
 import org.mjsip.config.OptionParser;
 import org.mjsip.media.MediaDesc;
 import org.mjsip.media.MediaSpec;
@@ -21,7 +22,13 @@ import org.mjsip.ua.streamer.StreamerFactory;
 import org.slf4j.LoggerFactory;
 import org.zoolu.net.SocketAddress;
 
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
+import java.util.Vector;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 /**
@@ -32,7 +39,7 @@ public class NovaSonicVoipGateway extends RegisteringMultipleUAS {
     // Instance variables
     protected final NovaMediaConfig mediaConfig;
     protected final UAConfig uaConfig;
-    private StreamerFactory streamerFactory;
+    private NovaStreamerFactory streamerFactory;
     private RegistrationClient _rc;
     private SipKeepAlive keep_alive;
 
@@ -101,15 +108,303 @@ public class NovaSonicVoipGateway extends RegisteringMultipleUAS {
     @Override
     protected UserAgentListener createCallHandler(SipMessage msg) {
         register();
+
+        // Extract real SIP Call-ID from message
+        String sipCallId = msg.getCallIdHeader().getCallId();
+
+        // Extract ALL SIP headers dynamically
+        Map<String, String> sipHeaders = extractAllSipHeaders(msg);
+
+        // Log only external variables (cleaner view)
+        logExternalVariables(sipCallId, sipHeaders);
+
+        // Optional: Keep full SIP headers in DEBUG level
+        if (LOG.isDebugEnabled()) {
+            logSipHeadersDetailed(sipCallId, sipHeaders);
+        }
+
         return new UserAgentListenerAdapter() {
             @Override
             public void onUaIncomingCall(UserAgent ua, NameAddress callee, NameAddress caller,
                                          MediaDesc[] media_descs) {
-                LOG.info("Incomming call from: {}", callee.getAddress());
-                ua.accept(new MediaAgent(mediaConfig.getMediaDescs(), streamerFactory));
+                LOG.info("Incoming call from: {} to: {}", caller.getAddress(), callee.getAddress());
+
+                // Add calculated variables to the map
+                sipHeaders.put("sip_call_id", sipCallId);
+                sipHeaders.put("ani", extractPhoneNumber(caller));
+                sipHeaders.put("dnis", extractPhoneNumber(callee));
+                sipHeaders.put("client_id", System.getenv().getOrDefault("CLIENT_ID", "keralty"));
+
+                // Create call tracer with all variables
+                CallTracer tracer = new CallTracer(sipHeaders);
+
+                // Create media agent with tracer
+                ua.accept(new MediaAgent(mediaConfig.getMediaDescs(), streamerFactory.withTracer(tracer)));
             }
         };
     }
+
+    /**
+     * Extracts ALL headers from SIP message dynamically.
+     * Captures custom headers sent by provider (e.g., X-Client-Name, X-Session-ID).
+     *
+     * @param msg SIP message
+     * @return Map with all headers (key: header name in lowercase, value: header value)
+     */
+    private Map<String, String> extractAllSipHeaders(SipMessage msg) {
+        Map<String, String> headers = new HashMap<>();
+
+        try {
+            // Get all headers from SIP message
+            Vector<?> allHeaders = msg.getHeaders();
+
+            for (Object headerObj : allHeaders) {
+                try {
+                    // mjSIP uses org.mjsip.sip.header.Header interface
+                    // Each header has getName() and getValue() methods
+                    String headerName = (String) headerObj.getClass().getMethod("getName").invoke(headerObj);
+                    String headerValue = (String) headerObj.getClass().getMethod("getValue").invoke(headerObj);
+
+                    if (headerName != null && headerValue != null) {
+                        String key = headerName.toLowerCase();
+
+                        // Handle duplicate headers (e.g., multiple Via headers)
+                        if (headers.containsKey(key)) {
+                            headers.put(key, headers.get(key) + "," + headerValue);
+                        } else {
+                            headers.put(key, headerValue);
+                        }
+                    }
+                } catch (Exception e) {
+                    LOG.debug("Could not extract header from object: {}", headerObj.getClass().getName());
+                }
+            }
+
+            LOG.debug("Extracted {} SIP headers from message", headers.size());
+
+        } catch (Exception e) {
+            LOG.error("Error extracting SIP headers: {}", e.getMessage(), e);
+        }
+
+        // Fallback parser for non-standard headers (UUI, custom X-headers)
+        extractUUIFromRawMessage(msg, headers);
+
+        return headers;
+    }
+
+    /**
+     * Extracts User-to-User and other non-standard headers from raw SIP message.
+     * This fallback parser handles headers that mjSIP doesn't recognize (e.g., RFC 7433 UUI).
+     *
+     * @param msg SIP message
+     * @param headers Map to populate with found headers
+     */
+    private void extractUUIFromRawMessage(SipMessage msg, Map<String, String> headers) {
+        try {
+            byte[] rawBytes = msg.getBytes();
+            String rawMessage = new String(rawBytes, StandardCharsets.UTF_8);
+
+            // Log full raw message for debugging (remove after verification)
+            LOG.debug("Full raw SIP message:\n{}", rawMessage);
+
+            // Parse for User-to-User header (case-insensitive, RFC 7433)
+            // Format: User-to-User: <value>;encoding=<enc>;purpose=<purpose>
+            Pattern uuiPattern = Pattern.compile("(?im)^User-to-User\\s*:\\s*([^\\r\\n]+)");
+            Matcher uuiMatcher = uuiPattern.matcher(rawMessage);
+
+            if (uuiMatcher.find()) {
+                String uuiValue = uuiMatcher.group(1).trim();
+                headers.put("user-to-user", uuiValue);
+                LOG.info("Captured User-to-User header from raw message: {}", uuiValue);
+
+                // Parse UUI data into individual key-value pairs
+                // Format: Task.callId=abc-123;encoding=hex;purpose=isdn-uui
+                parseUUIDataToHeaders(uuiValue, headers);
+            }
+
+            // Also scan for any X-* custom headers that mjSIP might have missed
+            Pattern xHeaderPattern = Pattern.compile("(?im)^(X-[^:]+)\\s*:\\s*([^\\r\\n]+)");
+            Matcher xHeaderMatcher = xHeaderPattern.matcher(rawMessage);
+
+            while (xHeaderMatcher.find()) {
+                String headerName = xHeaderMatcher.group(1).trim().toLowerCase();
+                String headerValue = xHeaderMatcher.group(2).trim();
+
+                // Only add if not already captured by standard extraction
+                if (!headers.containsKey(headerName)) {
+                    headers.put(headerName, headerValue);
+                    LOG.debug("Captured custom header from raw message: {} = {}", headerName, headerValue);
+                }
+            }
+
+        } catch (Exception e) {
+            LOG.warn("Error extracting headers from raw SIP message: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Parses UUI data string into individual key-value pairs and adds them to headers map.
+     * Handles formats like: Task.callId=abc-123;encoding=hex;purpose=isdn-uui
+     * Creates individual entries: uui_task_callid, uui_encoding, uui_purpose, etc.
+     *
+     * @param uuiData The full UUI data string
+     * @param headers Map to populate with parsed key-value pairs
+     */
+    private void parseUUIDataToHeaders(String uuiData, Map<String, String> headers) {
+        try {
+            String dataToParse = uuiData;
+
+            // Check if it's hex-encoded (Genesys Cloud format)
+            // Pattern: starts with hex digits followed by ;encoding=hex
+            if (uuiData.matches("^[0-9a-fA-F]+;encoding=hex.*")) {
+                // Extract hex part (everything before first semicolon)
+                int semicolonIndex = uuiData.indexOf(';');
+                String hexPart = uuiData.substring(0, semicolonIndex);
+
+                // Decode hex to ASCII
+                String decoded = decodeHexToAscii(hexPart);
+                if (decoded != null) {
+                    LOG.info("Decoded UUI hex data: {}", decoded);
+                    dataToParse = decoded;
+                }
+            }
+
+            // Parse key-value pairs
+            // Genesys format: Key:Value|Key:Value|
+            // Generic format: Key=Value;Key=Value;
+            String[] parts = dataToParse.split("[|;]");
+
+            for (String part : parts) {
+                part = part.trim();
+                if (part.isEmpty()) continue;
+
+                // Try colon separator first (Genesys), then equals
+                int separatorIndex = part.indexOf(':');
+                if (separatorIndex <= 0) {
+                    separatorIndex = part.indexOf('=');
+                }
+
+                if (separatorIndex > 0) {
+                    String key = part.substring(0, separatorIndex).trim();
+                    String value = part.substring(separatorIndex + 1).trim();
+
+                    // Normalize key: ConversationId -> uui_conversationid
+                    String normalizedKey = "uui_" + key.toLowerCase().replace('.', '_');
+
+                    headers.put(normalizedKey, value);
+                    LOG.info("Parsed UUI parameter: {} = {}", normalizedKey, value);
+                }
+            }
+        } catch (Exception e) {
+            LOG.warn("Error parsing UUI data into key-value pairs: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Decodes hex string to ASCII text.
+     * Removes the protocol discriminator prefix (first 2 chars) if present.
+     *
+     * @param hexString Hex string to decode
+     * @return Decoded ASCII string
+     */
+    private String decodeHexToAscii(String hexString) {
+        try {
+            // Remove protocol discriminator (first octet = first 2 hex chars)
+            if (hexString.length() >= 2 && hexString.startsWith("00")) {
+                hexString = hexString.substring(2);
+            }
+
+            // Convert hex to bytes
+            int len = hexString.length();
+            byte[] data = new byte[len / 2];
+            for (int i = 0; i < len; i += 2) {
+                data[i / 2] = (byte) ((Character.digit(hexString.charAt(i), 16) << 4)
+                                    + Character.digit(hexString.charAt(i+1), 16));
+            }
+
+            return new String(data, StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            LOG.warn("Error decoding hex string: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Logs all SIP headers in a formatted block for debugging.
+     *
+     * @param sipCallId SIP Call-ID
+     * @param headers Map of headers
+     */
+    private void logSipHeadersDetailed(String sipCallId, Map<String, String> headers) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("\n========================================\n");
+        sb.append("SIP HEADERS RECEIVED (call_id: ").append(sipCallId).append(")\n");
+        sb.append("========================================\n");
+
+        // Sort alphabetically for easier reading
+        headers.keySet().stream().sorted().forEach(key -> {
+            sb.append(String.format("  %-25s: %s\n", key, headers.get(key)));
+        });
+
+        sb.append("========================================\n");
+        sb.append("Total headers: ").append(headers.size()).append("\n");
+        sb.append("========================================");
+
+        LOG.info(sb.toString());
+    }
+
+    /**
+     * Logs only external variables (from UUI data) in a clean format.
+     *
+     * @param sipCallId SIP Call-ID
+     * @param headers Map of all headers
+     */
+    private void logExternalVariables(String sipCallId, Map<String, String> headers) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("\n========================================\n");
+        sb.append("EXTERNAL VARIABLES (call_id: ").append(sipCallId).append(")\n");
+        sb.append("========================================\n");
+
+        // Filter only UUI-parsed variables
+        boolean hasVariables = false;
+        for (String key : headers.keySet().stream().sorted().collect(java.util.stream.Collectors.toList())) {
+            if (key.startsWith("uui_")) {
+                // Remove uui_ prefix for display
+                String displayKey = key.substring(4);
+                sb.append(String.format("  %-25s: %s\n", displayKey, headers.get(key)));
+                hasVariables = true;
+            }
+        }
+
+        if (!hasVariables) {
+            sb.append("  (No external variables found)\n");
+        }
+
+        sb.append("========================================");
+
+        LOG.info(sb.toString());
+    }
+
+    /**
+     * Extracts phone number from SIP NameAddress.
+     * Handles formats like "sip:3001234567@server.com" or "<sip:+573001234567@server.com>"
+     *
+     * @param addr NameAddress containing the phone number
+     * @return Extracted phone number, or the full address string if extraction fails
+     */
+    private String extractPhoneNumber(NameAddress addr) {
+        if (addr == null || addr.getAddress() == null) {
+            return "unknown";
+        }
+
+        String fullAddress = addr.getAddress().toString();
+        // Remove "sip:" prefix and everything after "@"
+        String extracted = fullAddress.replaceAll("^sip:", "").replaceAll("@.*$", "");
+
+        // If result is empty or same as input, return original
+        return extracted.isEmpty() ? fullAddress : extracted;
+    }
+
     /**
      * The main method.
      */
@@ -123,8 +418,16 @@ public class NovaSonicVoipGateway extends RegisteringMultipleUAS {
         NovaMediaConfig mediaConfig = new NovaMediaConfig();
         Map<String, String> environ = System.getenv();
         mediaConfig.setNovaVoiceId(environ.getOrDefault("NOVA_VOICE_ID","en_us_matthew"));
+
+        // Load prompt: prioritize NOVA_PROMPT env var, otherwise load from resources based on CLIENT_ID
         if (isConfigured(environ.get("NOVA_PROMPT"))) {
             mediaConfig.setNovaPrompt(environ.get("NOVA_PROMPT"));
+            LOG.info("Using NOVA_PROMPT from environment variable");
+        } else {
+            String clientId = environ.getOrDefault("CLIENT_ID", "keralty");
+            String basePrompt = NovaMediaConfig.loadBasePrompt(clientId);
+            mediaConfig.setNovaPrompt(basePrompt);
+            LOG.info("Loaded base prompt for CLIENT_ID: {}", clientId);
         }
 
         if (isConfigured(environ.get("SIP_SERVER"))) {

@@ -1,8 +1,10 @@
 package com.example.s2s.voipgateway.nova;
 
+import com.example.s2s.voipgateway.notification.SqsNotifier;
 import com.example.s2s.voipgateway.nova.event.*;
 import com.example.s2s.voipgateway.nova.io.QueuedUlawInputStream;
 import com.example.s2s.voipgateway.nova.observer.InteractObserver;
+import com.example.s2s.voipgateway.tracing.CallTracer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -23,6 +25,7 @@ import java.util.UUID;
  */
 public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler {
     private static final Logger log = LoggerFactory.getLogger(AbstractNovaS2SEventHandler.class);
+    private static final SqsNotifier sqsNotifier = new SqsNotifier();
     private static final Base64.Decoder decoder = Base64.getDecoder();
     private static final String ERROR_AUDIO_FILE = "error.wav";
     private final QueuedUlawInputStream audioStream = new QueuedUlawInputStream();
@@ -31,12 +34,22 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
     private String promptName;
     private boolean debugAudioOutput;
     private boolean playedErrorSound = false;
+    protected CallTracer tracer; // null-safe: tracing is optional
 
     public AbstractNovaS2SEventHandler() {
-        this(null);
+        this(null, null);
+    }
+
+    public AbstractNovaS2SEventHandler(CallTracer tracer) {
+        this(tracer, null);
     }
 
     public AbstractNovaS2SEventHandler(InteractObserver<NovaSonicEvent> outbound) {
+        this(null, outbound);
+    }
+
+    public AbstractNovaS2SEventHandler(CallTracer tracer, InteractObserver<NovaSonicEvent> outbound) {
+        this.tracer = tracer;
         this.outbound = outbound;
         debugAudioOutput = "true".equalsIgnoreCase(System.getenv().getOrDefault("DEBUG_AUDIO_OUTPUT", "false"));
     }
@@ -55,7 +68,9 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
 
     @Override
     public void handleTextOutput(JsonNode node) {
-
+        String content = node.get("content").asText();
+        String role = node.get("role").asText();
+        log.info("Nova says ({}): {}", role, content);
     }
 
     @Override
@@ -100,6 +115,19 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
 
     @Override
     public void onError(Exception e) {
+        log.error("Stream error: {}", e.getMessage(), e);
+        if (tracer != null) {
+            try {
+                sqsNotifier.sendCallCompletedMessage(tracer);
+            } catch (Exception ex) {
+                log.error("Failed to send SQS notification on error", ex);
+            }
+            try {
+                tracer.close();
+            } catch (Exception ex) {
+                log.error("Failed to close tracer", ex);
+            }
+        }
         if (!playedErrorSound) {
             try {
                 playAudioFile(ERROR_AUDIO_FILE);
@@ -113,6 +141,20 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
     @Override
     public void onComplete() {
         log.info("Stream complete");
+        if (tracer != null) {
+            String callId = tracer.getCallId();
+            log.info("Call finished - call_id: {}", callId);
+            try {
+                sqsNotifier.sendCallCompletedMessage(tracer);
+            } catch (Exception e) {
+                log.error("Failed to send SQS notification", e);
+            }
+            try {
+                tracer.close();
+            } catch (Exception e) {
+                log.error("Failed to close tracer", e);
+            }
+        }
     }
 
     @Override
@@ -132,7 +174,7 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
      * @param content Content provided as a parameter to the invocation.
      * @param output The output node.
      */
-    protected abstract void handleToolInvocation(String toolUseId, String toolName, String content, Map<String,Object> output);
+    public abstract void handleToolInvocation(String toolUseId, String toolName, String content, Map<String,Object> output);
 
     @Override
     public void handleToolUse(JsonNode node, String toolUseId, String toolName, String content) {
