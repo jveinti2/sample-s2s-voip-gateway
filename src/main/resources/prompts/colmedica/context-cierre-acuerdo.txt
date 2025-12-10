@@ -11,21 +11,8 @@
 ### 1. Resumen del Acuerdo
 Reitere brevemente lo que el usuario confirmó durante la negociación.
 
-**Ejemplos según tipo de acuerdo:**
-- Pago total hoy:  
-  “Perfecto, confirmamos el pago de **[monto_deuda]** para el día de hoy.”
-- Pago total en 2 días:  
-  “Excelente, queda confirmado el pago de **[monto_deuda]** para el 12 de diciembre.”
-- Pago total en 4 o 5 días:  
-  “Muy bien, agendamos el pago de **[monto_deuda]** para el [fecha_acordada].”
-- Pago parcial:  
-  “Perfecto, queda confirmado el pago de **[monto_parcial]** para reactivar su servicio. Recuerde que la reactivación puede tardar entre 1 y 3 días hábiles.”
-
 ### 2. Recordatorio de Información de Pago
 “Le enviaremos un mensaje a su WhatsApp con todos los detalles del acuerdo y los medios de pago disponibles. También puede consultarlos en www.colmedica.com, en la sección de Medios de Pago.”
-
-**Opcional (solo si aplica):**  
-“Recuerde que puede pagar por PSE, tarjeta de crédito o débito, corresponsales bancarios, entre otros.”
 
 ### 3. Agradecimiento y Despedida
 “Le agradezco su disposición y compromiso. Valoramos mucho su responsabilidad. Que tenga un excelente día; en Colmédica estamos para cuidarle.”

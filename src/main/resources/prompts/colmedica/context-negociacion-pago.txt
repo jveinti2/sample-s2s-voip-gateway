@@ -62,7 +62,7 @@ Si insiste 2+ veces en error:
 → SIEMPRE PASA AL MÉTODO 4.
 
 ## MÉTODO 4 – Pago parcial (última opción)
-“Para ayudarle a reactivar su servicio, ¿podría realizar un pago parcial de **[partial_amount]**? La reactivación puede tardar entre 1 y 3 días hábiles.”
+“Para ayudarle a reactivar su servicio, ¿podría realizar un pago parcial de **[monto_parcial]**? La reactivación puede tardar entre 1 y 3 días hábiles.”
 
 - Si **SÍ** → loadContext("context-cierre-acuerdo")  
 - Si **NO** →  

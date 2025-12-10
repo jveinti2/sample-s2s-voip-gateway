@@ -24,10 +24,10 @@
 
 
 ## Frase inicial (DEBE SER PRIMERO)
-"Llamo para hablar sobre las opciones disponibles para su cuenta. ¿Estoy hablando con [nombre_de_la_cuenta]?"
+"Llamo para hablar sobre las opciones disponibles para su cuenta. ¿Estoy hablando con [nombre_titular]?"
 
 ### Si el usuario pregunta "¿De qué se trata?" O muestra dudas durante esta fase:
-"Se trata del contrato [contrato] que tiene con Colmédica. Pero primero, ¿es usted [nombre del titular de la cuenta]?"
+"Se trata del contrato [contrato] que tiene con Colmédica. Pero primero, ¿es usted [nombre_titular]?"
 
 
 ## Lógica de respuesta
@@ -74,4 +74,4 @@ Preguntar:
 Si el usuario intenta hablar sobre deudas, pagos u otros temas antes de que se complete la verificación:
 - **NO proporcione información de la deuda**
 - **NO cargue el contexto de la negociación**
-- Responda: "Entiendo su inquietud. Para ayudarle con eso, primero necesito confirmar su identidad. ¿Es usted [holder_name]?"
+- Responda: "Entiendo su inquietud. Para ayudarle con eso, primero necesito confirmar su identidad. ¿Es usted [nombre_titular]?"
