@@ -74,9 +74,9 @@ public class SqsNotifier {
         }
 
         try {
-            String conversationId = tracer.getVariable("uui_conversationid");
+            String conversationId = tracer.getVariable("uui_conversation_id");
             if (conversationId == null || conversationId.isEmpty()) {
-                LOG.warn("No conversationId found in tracer, skipping SQS message");
+                LOG.warn("No conversation_id found in tracer, skipping SQS message");
                 return;
             }
 
