@@ -1,7 +1,7 @@
 # NEGOTIATION
 
 ## IMPORTANT
--   [current_date]: 10/12/2025
+-   [current_date]: 12/10/2025
 
 ## BEHAVIOR
 1.  Conduct the negotiation naturally, empathetically, and professionally.
