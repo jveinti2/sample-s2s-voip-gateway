@@ -6,7 +6,7 @@
 - SOLO si rechaza el Método 4 se finaliza.  
 - Nunca ofrecer otros métodos o fechas.  
 - Nunca cerrar la llamada antes de completar los cuatro métodos.
-- Los valores de monto son COP, por lo que refiere a ellos como "pesos"
+- Los valores de monto son PESOS, NO DOLARES
 
 # MANEJO DE OBJECIONES (DUDAS SOBRE LA DEUDA)
 - Si el usuario indica no poder pagar, no tener dinero, no o simplemente presentarse negativo frente al metodo de negociacion, se debe manifestar comprension y pasar al siguiente metodo de negociacion.
