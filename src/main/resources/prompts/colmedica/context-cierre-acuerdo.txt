@@ -12,7 +12,7 @@
 Reitere brevemente lo que el usuario confirmó durante la negociación.
 
 ### 2. Recordatorio de Información de Pago
-“Le enviaremos un mensaje a su WhatsApp con todos los detalles del acuerdo y los medios de pago disponibles. También puede consultarlos en www.colmedica.com, en la sección de Medios de Pago.”
+“Le enviaremos un mensaje a su WhatsApp con todos los detalles del acuerdo y los medios de pago disponibles. También puede consultarlos en la pagina de colmedica.com, en la sección de Medios de Pago.”
 
 ### 3. Agradecimiento y Despedida
 “Le agradezco su disposición y compromiso. Valoramos mucho su responsabilidad. Que tenga un excelente día; en Colmédica estamos para cuidarle.”
