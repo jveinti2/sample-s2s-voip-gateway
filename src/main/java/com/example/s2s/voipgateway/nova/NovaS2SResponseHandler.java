@@ -55,8 +55,12 @@ public class NovaS2SResponseHandler implements InvokeModelWithBidirectionalStrea
 
         // if any of the chunks fail to parse or be handled ensure to send an error or they will get lost
         completableFuture.exceptionally(t -> {
-            log.error("Event stream error", t);
-            handler.onError(new Exception(t));
+            if (isExpectedClosingError(t)) {
+                log.debug("Session closing with expected error: {}", t.getMessage());
+            } else {
+                log.error("Event stream error", t);
+                handler.onError(new Exception(t));
+            }
             return null;
         });
 
@@ -65,8 +69,21 @@ public class NovaS2SResponseHandler implements InvokeModelWithBidirectionalStrea
 
     @Override
     public void exceptionOccurred(Throwable t) {
-        log.error("Event stream error, exception occurred", t);
-        handler.onError(new Exception(t));
+        if (isExpectedClosingError(t)) {
+            log.debug("Session closing with expected error: {}", t.getMessage());
+        } else {
+            log.error("Event stream error, exception occurred", t);
+            handler.onError(new Exception(t));
+        }
+    }
+
+    private boolean isExpectedClosingError(Throwable t) {
+        if (t == null) return false;
+        String message = t.getMessage();
+        if (message == null) return false;
+        return message.contains("No open content found for content name") ||
+               message.contains("Stream closed") ||
+               message.contains("Connection reset");
     }
 
     @Override
@@ -105,8 +122,10 @@ public class NovaS2SResponseHandler implements InvokeModelWithBidirectionalStrea
                     }
                 } else if (eventNode.has("completionEnd")) {
                     handler.handleCompletionEnd(eventNode.get("completionEnd"));
+                } else if (eventNode.has("usageEvent")) {
+                    log.debug("Usage event: {}", eventNode.get("usageEvent"));
                 } else {
-                    log.info("Unhandled event: {}", eventNode);
+                    log.debug("Unhandled event: {}", eventNode);
                 }
             }
         } catch (Exception e) {

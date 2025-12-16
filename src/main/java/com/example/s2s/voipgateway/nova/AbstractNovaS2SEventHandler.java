@@ -60,9 +60,9 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
 
     @Override
     public void handleCompletionStart(JsonNode node) {
-        log.info("Completion started for node: {}", node);
+        log.debug("Completion started for node: {}", node);
         promptName = node.get("promptName").asText();
-        log.info("Completion started with promptId: {}", promptName);
+        log.info("Nova session started - promptId: {}", promptName);
     }
 
     @Override
@@ -74,7 +74,7 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
     public void handleTextOutput(JsonNode node) {
         String content = node.get("content").asText();
         String role = node.get("role").asText();
-        log.info("Nova says ({}): {}", role, content);
+        log.debug("Nova says ({}): {}", role, content);
     }
 
     @Override
@@ -82,7 +82,7 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
         String content = node.get("content").asText();
         String role = node.get("role").asText();
         if (debugAudioOutput) {
-            log.info("Received audio output {} from {}", content, role);
+            log.debug("Received audio output {} from {}", content, role);
         }
         byte[] data = decoder.decode(content);
         try {
@@ -94,17 +94,17 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
 
     @Override
     public void handleContentEnd(JsonNode node) {
-        log.info("Content end for node: {}", node);
+        log.debug("Content end for node: {}", node);
         String contentId = node.get("contentId").asText();
         String stopReason = node.has("stopReason") ? node.get("stopReason").asText() : "";
-        log.info("Content ended: {} with reason: {}", contentId, stopReason);
+        log.debug("Content ended: {} with reason: {}", contentId, stopReason);
     }
 
     @Override
     public void handleCompletionEnd(JsonNode node) {
-        log.info("Completion end for node: {}", node);
+        log.debug("Completion end for node: {}", node);
         String stopReason = node.has("stopReason") ? node.get("stopReason").asText() : "";
-        log.info("Completion ended with reason: {}", stopReason);
+        log.debug("Completion ended with reason: {}", stopReason);
     }
 
     @Override

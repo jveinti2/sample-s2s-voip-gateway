@@ -1,9 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <!-- Console appender with clean format -->
+    <!-- Console appender - only important messages -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} -- %msg%n</pattern>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %logger{20} - %msg%n</pattern>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>INFO</level>
+        </filter>
+    </appender>
+
+    <!-- File appender - rotating logs -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/voip-gateway.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/voip-gateway.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>7</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
@@ -18,18 +34,23 @@
     <logger name="software.amazon.awssdk.thirdparty.io.netty" level="WARN"/>
 
     <!-- SILENCE mjSIP verbose logs -->
-    <logger name="org.mjsip" level="INFO"/>
-    <logger name="org.zoolu" level="INFO"/>
+    <logger name="org.mjsip" level="WARN"/>
+    <logger name="org.zoolu" level="WARN"/>
 
-    <!-- Application loggers - INFO by default -->
+    <!-- Application loggers - reduce verbosity -->
     <logger name="com.example.s2s.voipgateway" level="INFO"/>
 
-    <!-- Enable DEBUG for specific classes when needed -->
-    <!-- Uncomment to debug variable replacement: -->
-    <!-- <logger name="com.example.s2s.voipgateway.nova.context.DynamicContextLoaderEventHandler" level="DEBUG"/> -->
+    <!-- SILENCE verbose Nova event handlers -->
+    <logger name="com.example.s2s.voipgateway.nova.NovaS2SResponseHandler" level="WARN"/>
+    <logger name="com.example.s2s.voipgateway.nova.AbstractNovaS2SEventHandler" level="WARN"/>
+
+    <!-- Only show important gateway events -->
+    <logger name="com.example.s2s.voipgateway.NovaSonicVoipGateway" level="INFO"/>
+    <logger name="com.example.s2s.voipgateway.nova.NovaStreamerFactory" level="INFO"/>
 
     <!-- Root logger -->
-    <root level="INFO">
+    <root level="WARN">
         <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
     </root>
 </configuration>
