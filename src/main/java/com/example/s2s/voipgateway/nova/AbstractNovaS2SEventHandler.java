@@ -36,6 +36,10 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
     private boolean playedErrorSound = false;
     protected CallTracer tracer; // null-safe: tracing is optional
 
+    private static volatile byte[] cachedGreetingPcm = null;
+    private static volatile byte[] cachedErrorPcm = null;
+    private static final Object cacheLock = new Object();
+
     public AbstractNovaS2SEventHandler() {
         this(null, null);
     }
@@ -107,9 +111,29 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
     public void onStart() {
         log.info("Session started, playing greeting.");
         String greetingFilename = System.getenv().getOrDefault("GREETING_FILENAME","hello-how.wav");
-        try { playAudioFile(greetingFilename); }
-        catch (FileNotFoundException e) {
-            log.info("{} not found, no greeting will be sent", greetingFilename);
+
+        if (cachedGreetingPcm == null) {
+            synchronized (cacheLock) {
+                if (cachedGreetingPcm == null) {
+                    log.info("Pre-loading greeting audio: {}", greetingFilename);
+                    cachedGreetingPcm = preloadAudioToCache(greetingFilename);
+                }
+            }
+        }
+
+        if (cachedGreetingPcm != null) {
+            try {
+                audioStream.append(cachedGreetingPcm);
+                log.debug("Played greeting from cache ({} bytes)", cachedGreetingPcm.length);
+            } catch (InterruptedException e) {
+                log.error("Failed to append cached greeting audio", e);
+            }
+        } else {
+            try {
+                playAudioFile(greetingFilename);
+            } catch (FileNotFoundException e) {
+                log.info("{} not found, no greeting will be sent", greetingFilename);
+            }
         }
     }
 
@@ -129,11 +153,30 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
             }
         }
         if (!playedErrorSound) {
-            try {
-                playAudioFile(ERROR_AUDIO_FILE);
-                playedErrorSound = true;
-            } catch (FileNotFoundException ex) {
-                log.error("Failed to play error audio file", ex);
+            if (cachedErrorPcm == null) {
+                synchronized (cacheLock) {
+                    if (cachedErrorPcm == null) {
+                        log.info("Pre-loading error audio: {}", ERROR_AUDIO_FILE);
+                        cachedErrorPcm = preloadAudioToCache(ERROR_AUDIO_FILE);
+                    }
+                }
+            }
+
+            if (cachedErrorPcm != null) {
+                try {
+                    audioStream.append(cachedErrorPcm);
+                    playedErrorSound = true;
+                    log.debug("Played error audio from cache ({} bytes)", cachedErrorPcm.length);
+                } catch (InterruptedException ex) {
+                    log.error("Failed to append cached error audio", ex);
+                }
+            } else {
+                try {
+                    playAudioFile(ERROR_AUDIO_FILE);
+                    playedErrorSound = true;
+                } catch (FileNotFoundException ex) {
+                    log.error("Failed to play error audio file", ex);
+                }
             }
         }
     }
@@ -196,6 +239,43 @@ public abstract class AbstractNovaS2SEventHandler implements NovaS2SEventHandler
             outbound.onNext(ContentEndEvent.create(promptName, contentName));
         } catch (Exception e) {
             throw new RuntimeException("Error creating JSON payload for toolResult", e);
+        }
+    }
+
+    /**
+     * Pre-loads and transcodes an audio file into PCM format for caching.
+     * @param filename The file name of the file to preload.
+     * @return The transcoded PCM bytes, or null if loading failed.
+     */
+    private static byte[] preloadAudioToCache(String filename) {
+        InputStream is = null;
+        File file = new File(filename);
+        if (file.exists()) {
+            try {
+                is = new FileInputStream(file);
+            } catch (FileNotFoundException e) {
+                log.warn("File exists check passed but FileInputStream failed for {}", filename, e);
+            }
+        } else {
+            is = AbstractNovaS2SEventHandler.class.getClassLoader().getResourceAsStream(filename);
+        }
+
+        if (is != null) {
+            try {
+                AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(new BufferedInputStream(is));
+                AudioInputStream transcodedStream = AudioSystem.getAudioInputStream(
+                        new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 8000, 16, 1, 2, 8000, false),
+                        audioInputStream);
+                byte[] pcmData = transcodedStream.readAllBytes();
+                log.info("Successfully cached audio file {} ({} bytes)", filename, pcmData.length);
+                return pcmData;
+            } catch (IOException | UnsupportedAudioFileException e) {
+                log.error("Failed to preload audio file {} to cache", filename, e);
+                return null;
+            }
+        } else {
+            log.warn("Could not find audio file {} for caching", filename);
+            return null;
         }
     }
 

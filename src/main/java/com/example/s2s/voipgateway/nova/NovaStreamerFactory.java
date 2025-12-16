@@ -39,42 +39,54 @@ public class NovaStreamerFactory implements StreamerFactory {
     private static final String ROLE_SYSTEM = "SYSTEM";
     private final NovaMediaConfig mediaConfig;
     private CallTracer tracer; // null-safe: can be null if not set
+    private final BedrockRuntimeAsyncClient sharedClient;
 
     public NovaStreamerFactory(NovaMediaConfig mediaConfig) {
         this.mediaConfig = mediaConfig;
         this.tracer = null;
+
+        log.info("Initializing shared BedrockRuntimeAsyncClient...");
+        NettyNioAsyncHttpClient httpClient = NettyNioAsyncHttpClient.builder()
+                .readTimeout(Duration.of(180, ChronoUnit.SECONDS))
+                .maxConcurrency(100)
+                .protocol(Protocol.HTTP2)
+                .protocolNegotiation(ProtocolNegotiation.ALPN)
+                .build();
+
+        this.sharedClient = BedrockRuntimeAsyncClient.builder()
+                .region(Region.US_EAST_1)
+                .httpClientBuilder(httpClient)
+                .build();
+        log.info("Shared BedrockRuntimeAsyncClient initialized successfully");
     }
 
     /**
      * Creates a copy of this factory with the specified tracer attached.
      * This allows the factory to be reused while providing call-specific tracers.
+     * The shared BedrockRuntimeAsyncClient is reused across all copies.
      *
      * @param tracer The call tracer for this specific call
      * @return A new StreamerFactory instance with the tracer attached
      */
     public StreamerFactory withTracer(CallTracer tracer) {
-        NovaStreamerFactory copy = new NovaStreamerFactory(this.mediaConfig);
+        NovaStreamerFactory copy = new NovaStreamerFactory(this.mediaConfig, this.sharedClient);
         copy.tracer = tracer;
         return copy;
     }
 
+    private NovaStreamerFactory(NovaMediaConfig mediaConfig, BedrockRuntimeAsyncClient sharedClient) {
+        this.mediaConfig = mediaConfig;
+        this.sharedClient = sharedClient;
+        this.tracer = null;
+    }
+
     @Override
     public MediaStreamer createMediaStreamer(Executor executor, FlowSpec flowSpec) {
-        log.info("Creating Nova streamer ...");
-        NettyNioAsyncHttpClient.Builder nettyBuilder = NettyNioAsyncHttpClient.builder()
-                .readTimeout(Duration.of(180, ChronoUnit.SECONDS))
-                .maxConcurrency(20)
-                .protocol(Protocol.HTTP2)
-                .protocolNegotiation(ProtocolNegotiation.ALPN);
-
-        BedrockRuntimeAsyncClient client = BedrockRuntimeAsyncClient.builder()
-                .region(Region.US_EAST_1)
-                .httpClientBuilder(nettyBuilder)
-                .build();
+        log.info("Creating Nova streamer using shared client...");
 
         String promptName = UUID.randomUUID().toString();
 
-        NovaS2SBedrockInteractClient novaClient = new NovaS2SBedrockInteractClient(client, "amazon.nova-sonic-v1:0");
+        NovaS2SBedrockInteractClient novaClient = new NovaS2SBedrockInteractClient(sharedClient, "amazon.nova-sonic-v1:0");
         NovaS2SEventHandler eventHandler = new HybridEventHandler(tracer);
 
         // Replace variables in base prompt before sending to Nova Sonic

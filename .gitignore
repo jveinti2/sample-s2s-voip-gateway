@@ -11,3 +11,5 @@ node_modules
 .env
 CLAUDE.md
 logs/
+nul
+.claude/settings.local.json
