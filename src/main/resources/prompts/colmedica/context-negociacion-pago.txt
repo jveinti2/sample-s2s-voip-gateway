@@ -27,10 +27,11 @@ contrato: [Número de contrato]
 
 ## MANEJO DE DUDAS SOBRE LA DEUDA DURANTE NEGOCIACIÓN
 
-Si el usuario pregunta DESPUÉS de haber verificado identidad:
+Si el usuario pregunta/indica DESPUÉS de haber verificado identidad que nos abe que le estan cobrando, que no reconoce la deuda, o usa alguna de las siguientes frases:
 - "¿Qué me están cobrando?"
 - "¿De qué es esta deuda?"
 - "No reconozco este cobro"
+- "No recuerdo deberles algo"
 
 RESPUESTA:
 "Es sobre su contrato [contrato] con Colmédica. Registramos un saldo pendiente de [monto_deuda] pesos con [dias_mora] días de mora. ¿Tiene alguna duda específica sobre este saldo?"
