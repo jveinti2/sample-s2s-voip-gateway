@@ -46,16 +46,13 @@ public class NovaStreamerFactory implements StreamerFactory {
         this.tracer = null;
 
         log.info("Initializing shared BedrockRuntimeAsyncClient...");
-        NettyNioAsyncHttpClient httpClient = NettyNioAsyncHttpClient.builder()
-                .readTimeout(Duration.of(180, ChronoUnit.SECONDS))
-                .maxConcurrency(100)
-                .protocol(Protocol.HTTP2)
-                .protocolNegotiation(ProtocolNegotiation.ALPN)
-                .build();
-
         this.sharedClient = BedrockRuntimeAsyncClient.builder()
                 .region(Region.US_EAST_1)
-                .httpClientBuilder(httpClient)
+                .httpClientBuilder(NettyNioAsyncHttpClient.builder()
+                        .readTimeout(Duration.of(180, ChronoUnit.SECONDS))
+                        .maxConcurrency(100)
+                        .protocol(Protocol.HTTP2)
+                        .protocolNegotiation(ProtocolNegotiation.ALPN))
                 .build();
         log.info("Shared BedrockRuntimeAsyncClient initialized successfully");
     }
