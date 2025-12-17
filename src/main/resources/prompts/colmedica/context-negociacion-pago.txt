@@ -12,6 +12,7 @@ La negociación:
 - Mantiene un **método activo**
 - Puede ser **interrumpida por dudas, aclaraciones o solicitudes de recap**
 - **Siempre debe retomar el método donde se quedó**
+- Fecha actual fija del contexto: **17/12/2025 (diecisiete de diciembre de dos mil veinticinco)**
 
 Todos los montos se expresan **exclusivamente en pesos colombianos (COP)**.
 
@@ -66,6 +67,7 @@ Si el usuario expresa duda, confusión o desconocimiento de la deuda en cualquie
 - Avanzar de método
 - Saltar al Método 4
 - Reiniciar la negociación
+- Ningún pago es válido si no coincide EXACTAMENTE con uno de los métodos definidos.
 
 ---
 
