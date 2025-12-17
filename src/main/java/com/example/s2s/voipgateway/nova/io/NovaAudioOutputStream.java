@@ -25,14 +25,17 @@ public class NovaAudioOutputStream extends OutputStream {
     private final Base64.Encoder encoder = Base64.getEncoder();
     private final String promptName;
     private final String contentName;
+    private final QueuedUlawInputStream outputAudioStream;
     private boolean startSent = false;
     private OutputStream audioFileOutput;
     private boolean debugAudioReceived = System.getenv().getOrDefault("DEBUG_AUDIO_RECEIVED", "false").equalsIgnoreCase("true");
 
-    public NovaAudioOutputStream(InteractObserver<NovaSonicEvent> observer, String promptName) {
+    public NovaAudioOutputStream(InteractObserver<NovaSonicEvent> observer, String promptName,
+                                 QueuedUlawInputStream outputAudioStream) {
         this.observer = observer;
         this.promptName = promptName;
         this.contentName = UUID.randomUUID().toString();
+        this.outputAudioStream = outputAudioStream;
     }
 
     @Override
@@ -43,6 +46,16 @@ public class NovaAudioOutputStream extends OutputStream {
             System.arraycopy(b, off, other, 0, len);
             b = other;
         }
+
+        // INTERRUPTION DETECTION: If Nova is speaking (queue > 0) and user starts speaking,
+        // clear local queue. Nova will handle VAD natively to distinguish voice from noise.
+        if (outputAudioStream != null && outputAudioStream.getQueueSize() > 0) {
+            org.slf4j.LoggerFactory.getLogger(NovaAudioOutputStream.class).info(
+                "User interruption: Clearing {} queued chunks. Nova will handle VAD.",
+                outputAudioStream.getQueueSize());
+            outputAudioStream.clear();
+        }
+
         if (!startSent) {
             sendStart();
             if (debugAudioReceived) {
@@ -55,6 +68,7 @@ public class NovaAudioOutputStream extends OutputStream {
             audioFileOutput.write(pcmData);
         }
 
+        // Audio is sent to Nova - Nova's native VAD will decide if it's voice or noise
         observer.onNext(new AudioInputEvent(AudioInputEvent.AudioInput.builder()
                 .promptName(promptName)
                 .contentName(contentName)

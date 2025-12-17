@@ -97,5 +97,28 @@ public class QueuedUlawInputStream extends InputStream {
 
     @Override
     public synchronized void reset() throws IOException {
+        clear();
+    }
+
+    /**
+     * Clears the audio queue, discarding all queued chunks.
+     * Used for handling user interruptions during Nova speech.
+     */
+    public synchronized void clear() {
+        int queueSize = queue.size();
+        queue.clear();
+        currentChunk = null;
+        currentIndex = -1;
+        log.info("Audio output queue cleared (interruption - {} chunks discarded)", queueSize);
+    }
+
+    /**
+     * Returns the current number of audio chunks in the queue.
+     * Used to detect if Nova is currently speaking.
+     *
+     * @return The number of chunks in the queue
+     */
+    public synchronized int getQueueSize() {
+        return queue.size();
     }
 }

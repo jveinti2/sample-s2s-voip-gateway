@@ -2,6 +2,7 @@ package com.example.s2s.voipgateway;
 
 import com.example.s2s.voipgateway.nova.event.NovaSonicEvent;
 import com.example.s2s.voipgateway.nova.io.NovaAudioOutputStream;
+import com.example.s2s.voipgateway.nova.io.QueuedUlawInputStream;
 import com.example.s2s.voipgateway.nova.observer.InteractObserver;
 import org.mjsip.media.RtpStreamReceiver;
 import org.mjsip.media.RtpStreamReceiverListener;
@@ -23,10 +24,13 @@ public class NovaSonicAudioOutput implements AudioReceiver {
     private static final Logger LOG = LoggerFactory.getLogger(AudioFileReceiver.class);
     private final InteractObserver<NovaSonicEvent> inputObserver;
     private final String promptName;
+    private final QueuedUlawInputStream audioInputStream;
 
-    public NovaSonicAudioOutput(InteractObserver<NovaSonicEvent> inputObserver, String promptName) {
+    public NovaSonicAudioOutput(InteractObserver<NovaSonicEvent> inputObserver, String promptName,
+                                QueuedUlawInputStream audioInputStream) {
         this.inputObserver = inputObserver;
         this.promptName = promptName;
+        this.audioInputStream = audioInputStream;
     }
 
     @Override
@@ -34,7 +38,8 @@ public class NovaSonicAudioOutput implements AudioReceiver {
                                         CodecType codec, int payload_type, RtpPayloadFormat payloadFormat,
                                         int sample_rate, int channels, Encoder additional_decoder,
                                         RtpStreamReceiverListener listener) throws IOException {
-        NovaAudioOutputStream outputStream = new NovaAudioOutputStream(inputObserver, promptName);
+        // Pass reference to audioInputStream so NovaAudioOutputStream can clear queue on interruption
+        NovaAudioOutputStream outputStream = new NovaAudioOutputStream(inputObserver, promptName, audioInputStream);
         RtpStreamReceiver receiver = new RtpStreamReceiver(options, outputStream, additional_decoder, payloadFormat, socket, listener) {
             protected void onRtpStreamReceiverTerminated(Exception error) {
                 super.onRtpStreamReceiverTerminated(error);

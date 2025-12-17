@@ -100,14 +100,17 @@ public class NovaStreamerFactory implements StreamerFactory {
 
         eventHandler.setOutbound(inputObserver);
         AudioTransmitter tx = new NovaSonicAudioInput(eventHandler);
-        AudioReceiver rx = new NovaSonicAudioOutput(inputObserver, promptName);
+        // Pass audioInputStream reference so NovaAudioOutputStream can detect interruptions
+        // Cast is safe because eventHandler always uses QueuedUlawInputStream internally
+        AudioReceiver rx = new NovaSonicAudioOutput(inputObserver, promptName,
+                (com.example.s2s.voipgateway.nova.io.QueuedUlawInputStream) eventHandler.getAudioInputStream());
 
         StreamerOptions options = StreamerOptions.builder()
                 .setRandomEarlyDrop(mediaConfig.getRandomEarlyDropRate())
                 .setSymmetricRtp(mediaConfig.isSymmetricRtp())
                 .build();
 
-        log.debug("Created AudioStreamer");
+        log.debug("Created AudioStreamer with interruption support enabled");
         return new AudioStreamer(executor, flowSpec, tx, rx, options);
     }
 
