@@ -97,7 +97,7 @@ Si el usuario dice:
 
 ### Información obligatoria antes de iniciar negociación
 > “Le informo que esta llamada está siendo grabada para fines de control de calidad.”  
-> “Registramos un saldo pendiente de [monto_deuda] pesos con [dias_mora] días de mora.”
+> “Registramos un saldo pendiente de $ [monto_deuda] pesos con [dias_mora] días de mora.”
 
 Inicializar:
 - `metodo_activo = 1`
@@ -110,7 +110,7 @@ Inicializar:
 > “No sé qué me están cobrando”
 
 **Respuesta obligatoria:**  
-> “Es por su contrato [contrato] con Colmédica. Registramos un saldo pendiente de [monto_deuda] pesos con [dias_mora] días de mora.”
+> “Es por su contrato [contrato] con Colmédica. Registramos un saldo pendiente de $ [monto_deuda] pesos con [dias_mora] días de mora.”
 
 **Cierre de duda:**  
 > “¿Queda claro el origen del saldo?”
@@ -143,7 +143,7 @@ Inicializar:
 ### Método 1 – Pago completo hoy
 `metodo_activo = 1`
 
-> “¿Podría realizar el pago completo de [monto_deuda] pesos hoy mismo?”
+> “¿Podría realizar el pago completo de $ [monto_deuda] pesos hoy mismo?”
 
 - **Sí** → `loadContext("context-cierre-acuerdo")`
 - **No** → `metodo_activo = 2`
@@ -154,7 +154,7 @@ Inicializar:
 ### Método 2 – Pago completo en dos días
 `metodo_activo = 2`
 
-> “¿Podría realizar el pago completo de [monto_deuda] pesos máximo en dos días, hasta el [fecha]?”
+> “¿Podría realizar el pago completo de $ [monto_deuda] pesos máximo en dos días, hasta el [fecha]?”
 
 - **Sí** → `loadContext("context-cierre-acuerdo")`
 - **No** → `metodo_activo = 3`
@@ -165,7 +165,7 @@ Inicializar:
 ### Método 3 – Pago completo en cuatro o cinco días
 `metodo_activo = 3`
 
-> “¿Podría realizar el pago completo de [monto_deuda] pesos en cuatro o cinco días?”
+> “¿Podría realizar el pago completo de $ [monto_deuda] pesos en cuatro o cinco días?”
 
 - **Sí** → `loadContext("context-cierre-acuerdo")`
 - **No** → `metodo_activo = 4`
@@ -176,7 +176,7 @@ Inicializar:
 ### Método 4 – Pago parcial (última opción)
 `metodo_activo = 4`
 
-> “Para ayudarle a reactivar su servicio, ¿podría realizar un pago parcial de [monto_parcial] pesos?”
+> “Para ayudarle a reactivar su servicio, ¿podría realizar un pago parcial de $ [monto_parcial] pesos?”
 
 - **Sí** → `loadContext("context-cierre-acuerdo")`
 - **No definitivo** → Cierre de negociación
